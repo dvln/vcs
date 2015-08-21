@@ -29,6 +29,6 @@ The constructors have the same signature as `NewRepo`.
 The package `golang.org/x/tools/go/vcs` provides some valuable functionality
 for working with packages in repositories in varying source control management
 systems. That package, while useful and well tested, is designed with a specific
-purpose in mind. Our uses went beyond the scope of that package. To implement
-our scope we built a package that went beyond the functionality and scope
-of `golang.org/x/tools/go/vcs`.
+purpose in mind. This version of the package is from github.com/Masterminds/vcs
+and implements a Go interface based approach to VCS "repo" abstraction which is
+something I was planning on trying but now don't need to (thanks much folks!).
