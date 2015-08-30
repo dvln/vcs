@@ -72,6 +72,9 @@ func init() {
 	}
 }
 
+// This function is really a hack around Go redirects rather than around
+// something VCS related. Should this be moved to the glide project or a
+// helper function?
 func detectVcsFromRemote(vcsURL string) (Type, string, error) {
 	t, e := detectVcsFromURL(vcsURL)
 	if e == nil {
@@ -92,7 +95,7 @@ func detectVcsFromRemote(vcsURL string) (Type, string, error) {
 	// ?go-get=1 to the url.
 	u, err := url.Parse(vcsURL)
 	if err != nil {
-		return Type(""), "", err
+		return NoVCS, "", err
 	}
 	if u.RawQuery == "" {
 		u.RawQuery = "go-get=1"
@@ -101,16 +104,16 @@ func detectVcsFromRemote(vcsURL string) (Type, string, error) {
 	}
 	checkURL := u.String()
 	resp, err := http.Get(checkURL)
-	defer resp.Body.Close()
 	if err != nil {
-		return Type(""), "", ErrCannotDetectVCS
+		return NoVCS, "", ErrCannotDetectVCS
 	}
+	defer resp.Body.Close()
 
 	t, nu, err := parseImportFromBody(u, resp.Body)
 	if err != nil {
-		return Type(""), "", err
+		return NoVCS, "", err
 	} else if t == "" || nu == "" {
-		return Type(""), "", ErrCannotDetectVCS
+		return NoVCS, "", ErrCannotDetectVCS
 	}
 
 	return t, nu, nil
@@ -291,17 +294,19 @@ func parseImportFromBody(ur *url.URL, r io.ReadCloser) (tp Type, u string, err e
 			// detect pages including more than one.
 			// Should this be a different error?
 			if tp != "" || u != "" {
-				tp = Type("")
+				tp = NoVCS
 				u = ""
 				err = ErrCannotDetectVCS
 				return
 			}
 
-			// If the prefix is different from the import there is something
-			// happening that shouldn't be. Returning an error.
+			// If the prefix supplied by the remote system isn't a prefix to the
+			// url we're fetching return an error. This will work for exact
+			// matches and prefixes. For example, golang.org/x/net as a prefix
+			// will match for golang.org/x/net and golang.org/x/net/context.
 			// Should this be a different error?
 			vcsURL := ur.Host + ur.Path
-			if f[0] != vcsURL {
+			if !strings.HasPrefix(vcsURL, f[0]) {
 				err = ErrCannotDetectVCS
 				return
 			}

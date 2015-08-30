@@ -63,10 +63,11 @@ type Type string
 
 // VCS types
 const (
-	Git Type = "git"
-	Svn Type = "svn"
-	Bzr Type = "bzr"
-	Hg  Type = "hg"
+	NoVCS Type = ""
+	Git   Type = "git"
+	Svn   Type = "svn"
+	Bzr   Type = "bzr"
+	Hg    Type = "hg"
 )
 
 // Repo provides an interface to work with repositories using different source
@@ -112,7 +113,7 @@ func NewRepo(remote, local string) (Repo, error) {
 	// local repo is not checked first is because of the potential for VCS type
 	// switches which will be detected in each of the type builders.
 	if err == ErrCannotDetectVCS {
-		vtype, err = detectVcsFromFS(local)
+		vtype, err = DetectVcsFromFS(local)
 	}
 
 	if err != nil {
