@@ -19,7 +19,7 @@ func NewGitRepo(remote, local string) (*GitRepo, error) {
 	r := &GitRepo{}
 	r.setRemote(remote)
 	r.setLocalPath(local)
-	r.RemoteLocation = "origin"
+	r.RemoteName = "origin"
 	r.Logger = Logger
 
 	// Make sure the local Git repo is configured the same as the remote when
@@ -54,7 +54,7 @@ func NewGitRepo(remote, local string) (*GitRepo, error) {
 // GitRepo implements the Repo interface for the Git source control.
 type GitRepo struct {
 	base
-	RemoteLocation string
+	RemoteName string
 }
 
 // Vcs retrieves the underlying VCS being implemented.
@@ -70,7 +70,7 @@ func (s *GitRepo) Get() error {
 // Update performs an Git fetch and pull to an existing checkout.
 func (s *GitRepo) Update() error {
 	// Perform a fetch to make sure everything is up to date.
-	err := s.runFromDir("git", "fetch", s.RemoteLocation)
+	err := s.runFromDir("git", "fetch", s.RemoteName)
 	if err != nil {
 		return err
 	}
@@ -84,12 +84,14 @@ func (s *GitRepo) UpdateVersion(version string) error {
 
 // Version retrieves the current version.
 func (s *GitRepo) Version() (string, error) {
-
 	oldDir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	os.Chdir(s.LocalPath())
+	err = os.Chdir(s.LocalPath())
+	if err != nil {
+		return "", err
+	}
 	defer os.Chdir(oldDir)
 
 	out, err := exec.Command("git", "rev-parse", "HEAD").CombinedOutput()
@@ -107,5 +109,4 @@ func (s *GitRepo) CheckLocal() bool {
 	}
 
 	return false
-
 }
