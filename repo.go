@@ -103,21 +103,29 @@ type Repo interface {
 // NewRepo returns a Repo based on trying to detect the source control from the
 // remote and local locations. The appropriate implementation will be returned
 // or an ErrCannotDetectVCS if the VCS type cannot be detected.
-// Note, this function may make calls to the Internet to determind help determine
-// the VCS.
-func NewRepo(remote, local string) (Repo, error) {
-	vtype, remote, err := detectVcsFromRemote(remote)
+// Note, this function can make network calls to try to determine
+// the VCS (unless grabbing the repo from a local mount)
+// FIXME: erik: look to use the vcsType argument going forward
+func NewRepo(remote, local string, vcsType ...Type) (Repo, error) {
+	var vtype Type
+	if vcsType != nil && len(vcsType) == 1 && vcsType[0] != NoVCS {
+		vtype = vcsType[0]
+	} else {
+		var remote string
+		var err error
+		vtype, remote, err = detectVcsFromRemote(remote)
 
-	// From the remote URL the VCS could not be detected. See if the local
-	// repo contains enough information to figure out the VCS. The reason the
-	// local repo is not checked first is because of the potential for VCS type
-	// switches which will be detected in each of the type builders.
-	if err == ErrCannotDetectVCS {
-		vtype, err = DetectVcsFromFS(local)
-	}
+		// If from the remote URL the VCS could not be detected, see if the local
+		// repo contains enough information to figure out the VCS. The reason the
+		// local repo is not checked first is because of the potential for VCS type
+		// switches which will be detected in each of the type builders.
+		if err == ErrCannotDetectVCS {
+			vtype, err = DetectVcsFromFS(local)
+		}
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	switch vtype {

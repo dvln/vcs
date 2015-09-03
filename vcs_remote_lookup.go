@@ -1,3 +1,30 @@
+// ws_remote_lookup is targeted towards trying to figure out a "remote" VCS's
+// type when it is unknown (is it git, hg, svn, bzr?).  Note that "remote" means
+// not in the workspace (and could be a locally visible filesystem or URL). This
+// set of routines is only used for code bases that use pkg names and dvln cfg
+// such that the repo/VCS path/URL and repo/VCS type can be gleaned.  This set
+// of routines does the VCS *type* figuring out (it is given a repo path).  Eg:
+// 1) Go source "pkgs" are "typically" VCS/repo paths (well, mostly, no scheme)
+//    - can use the pkg names for repo path, here we "discover" backing VCS type
+// 2) If DVLN_VCS_PATH env or 'vcs_path' cfg is set to something like:
+//      % export DVLN_VCS_PATH="https://github/myorg /nfs/dir/clones"
+//    and all pkg names (at least those not defined in a related codebase defn)
+//    are visible relative to the given search "paths" then 'dvln' can derive
+//    the likely repo/VCS path/URL's and these routines can determine repo type:
+//      repo path: https://github.com/myorg/pkg1 or /nfs/dir/clones/pkg1
+//      -> existence for which path to pass in here happens *elsewhere*
+//      repo type: given one of those paths (whichever exists) then these
+//                 routines can (try to) derive the type of those repo/VCS's
+// The whole idea behind these routines is to derive the repo/VCS type given a
+// repo path.  However, one should have checked existence of already derived
+// repo/vcs "paths" before calling into this (to see which exists so the below
+// routines can figure the type).  Example: the above path has 2 entries, maybe
+// pkg1 only exists under "/nfs/dir/clones/pkg1", we need to use this repo/VCS
+// path to figure out the VCS type in play (maybe it's hg).  If we used the other
+// possible path (https://github.com/myorg/pkg1) we would have determined git
+// here without even checking if it exists (these routines don't hit the network
+// unless they have to, they assume the given repo/VCS path/uri is correct).
+
 package vcs
 
 import (
@@ -72,13 +99,30 @@ func init() {
 	}
 }
 
-// This function is really a hack around Go redirects rather than around
-// something VCS related. Should this be moved to the glide project or a
-// helper function?
-func detectVcsFromRemote(vcsURL string) (Type, string, error) {
-	t, e := detectVcsFromURL(vcsURL)
+// detectVcsFromRemote is a bit of a hack.  It tries to figure out what type
+// of VCS (git,hg,bzr,svn) is the given vcsURI pointing at.  The vcsURI can be:
+// 1) a local path that starts with '/'  (note: all OS's should use forward /)
+// ---> if exists then "ping/scan it" determine VCS type (eg: repo on NFS mount)
+// 2) a VCS URL: scan the URL for "known" naming (Go style scan)
+// 3) a "redirect" URL: a Go style redirect can point to another URL & give VCS
+// ---> note that this last one will hit the network if it is reached
+// Return this data:
+// - vcs.Type (currently Git, Hg, Bzr, Svn or noVCS if none)
+// - vcsURI: will be the same as vcsURI passed in unless it's a Go-like redirect
+// - error: if any issues, ErrCannotDetectVCS indicates normal but w/no match
+// Note: this routine does NOT always check if the actual repo exists (although
+// for some systems like bitbucket there are add-on routines thta do check)
+func detectVcsFromRemote(vcsURI string) (Type, string, error) {
+	//TODO: consider check for local path (ie: starts with '/'), to do this
+	//      -> convert to OS specific path (forward/backward/etc)
+	//      -> use this: DetectVcsFromFS(vcsPath string) (Type, error)
+	//      Note: also might be good to out.WrapErr any errors here and there,
+    //            if so then tests will need to be updated that check these Errs
+	//      eg: support NFS path in pkg/codebase search "/nfs/somedir/<name>"
+	//      eg: maybe support 'Rcs' type for codebase defn optionally (?)
+	t, e := detectVcsFromURL(vcsURI)
 	if e == nil {
-		return t, vcsURL, nil
+		return t, vcsURI, nil
 	}
 
 	// Need to test for vanity or paths like golang.org/x/
@@ -90,10 +134,10 @@ func detectVcsFromRemote(vcsURL string) (Type, string, error) {
 	// a meta tag with the name go-import which is what we use here.
 	// godoc.org also has one call go-source that we do not need to use.
 	// The value of go-import is in the form "prefix vcs repo". The prefix
-	// should match the vcsURL and the repo is a location that can be
+	// should match the vcsURI and the repo is a location that can be
 	// checked out. Note, to get the html document you you need to add
 	// ?go-get=1 to the url.
-	u, err := url.Parse(vcsURL)
+	u, err := url.Parse(vcsURI)
 	if err != nil {
 		return NoVCS, "", err
 	}
@@ -119,7 +163,10 @@ func detectVcsFromRemote(vcsURL string) (Type, string, error) {
 	return t, nu, nil
 }
 
-// From a remote vcs url attempt to detect the VCS.
+// detectVcsFromURL uses Go like matching to see if the given URL
+// matches "known" VCS serving systems (eg: github) or, failing that,
+// known VCS extensions on the repo name (eg: .git, .bzr, .hg, .svn).
+// It will return the type of VCS found (or NoVCS and any error hit.
 func detectVcsFromURL(vcsURL string) (Type, error) {
 	u, err := url.Parse(vcsURL)
 	if err != nil {
@@ -158,7 +205,7 @@ func detectVcsFromURL(vcsURL string) (Type, error) {
 			return v.vcs, nil
 		}
 
-		// Run additional checks to determine try and determine the repo
+		// Run additional checks to try and determine the repo
 		// for the matched service.
 		info := make(map[string]string)
 		for i, name := range v.regex.SubexpNames() {
@@ -172,7 +219,6 @@ func detectVcsFromURL(vcsURL string) (Type, error) {
 		}
 
 		return t, nil
-
 	}
 
 	// Unable to determine the vcs from the url.
@@ -181,7 +227,6 @@ func detectVcsFromURL(vcsURL string) (Type, error) {
 
 // Bitbucket provides an API for checking the VCS.
 func checkBitbucket(i map[string]string) (Type, error) {
-
 	// The part of the response we care about.
 	var response struct {
 		SCM Type `json:"scm"`
@@ -198,7 +243,6 @@ func checkBitbucket(i map[string]string) (Type, error) {
 	}
 
 	return response.SCM, nil
-
 }
 
 // Google supports Git, Hg, and Svn. The SVN style is only
