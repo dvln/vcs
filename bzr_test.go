@@ -2,13 +2,12 @@ package vcs
 
 import (
 	"io/ioutil"
-	//"log"
 	"os"
 	"testing"
 )
 
-// Canary test to ensure BzrRepo implements the Repo interface.
-var _ Repo = &BzrRepo{}
+// Canary test to ensure BzrReader implements the Reader interface.
+var _ Reader = &BzrReader{}
 
 // To verify bzr is working we perform intergration testing
 // with a known bzr service.
@@ -26,34 +25,36 @@ func TestBzr(t *testing.T) {
 		}
 	}()
 
-	repo, err := NewBzrRepo("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
+	bzrReader, err := NewBzrReader("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
 	if err != nil {
-		t.Error(err)
+		t.Errorf("Unable to instantiate new Bzr VCS reader, Err: %s", err)
 	}
 
-	if repo.Vcs() != Bzr {
+	if bzrReader.Vcs() != Bzr {
 		t.Error("Bzr is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if repo.Remote() != "https://launchpad.net/govcstestbzrrepo" {
+	if bzrReader.Remote() != "https://launchpad.net/govcstestbzrrepo" {
 		t.Error("Remote not set properly")
 	}
-	if repo.LocalPath() != tempDir+"/govcstestbzrrepo" {
+	if bzrReader.WkspcPath() != tempDir+"/govcstestbzrrepo" {
 		t.Error("Local disk location not set properly")
 	}
 
-	//Logger = log.New(os.Stdout, "", log.LstdFlags)
-
 	// Do an initial clone.
-	err = repo.Get()
+	_, err = bzrReader.Get()
 	if err != nil {
 		t.Errorf("Unable to clone Bzr repo. Err was %s", err)
 	}
 
 	// Verify Bzr repo is a Bzr repo
-	if repo.CheckLocal() == false {
-		t.Error("Problem checking out repo or Bzr CheckLocal is not working")
+	exists, err := bzrReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on Bzr repo: %s", err)
+	}
+	if exists == false {
+		t.Error("Problem checking out repo via Bzr Exists is not working")
 	}
 
 	// Test internal lookup mechanism used outside of Bzr specific functionality.
@@ -65,25 +66,29 @@ func TestBzr(t *testing.T) {
 		t.Errorf("detectVcsFromFS detected %s instead of Bzr type", ltype)
 	}
 
-	// Test NewRepo on existing checkout. This should simply provide a working
+	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	nrepo, nrerr := NewRepo("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
+	nbzrReader, nrerr := NewReader("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
-	// Verify the right oject is returned. It will check the local repo type.
-	if nrepo.CheckLocal() == false {
-		t.Error("Wrong version returned from NewRepo")
+	// Verify the thing exists in the workspace
+	exists, err = nbzrReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on Bzr repo: %s", err)
+	}
+	if exists == false {
+		t.Error("Don't see the new bzr repo in the workspace")
 	}
 
-	err = repo.UpdateVersion("2")
+	output, err := bzrReader.RevSet("2")
 	if err != nil {
-		t.Errorf("Unable to update Bzr repo version. Err was %s", err)
+		t.Errorf("Unable to update Bzr repo version. Err was %s, output was:\n%s", err, output)
 	}
 
 	// Use Version to verify we are on the right version.
-	v, err := repo.Version()
-	if v != "2" {
+	v, _, err := bzrReader.RevRead(CoreRev)
+	if string(v.Core()) != "2" {
 		t.Error("Error checking checked out Bzr version")
 	}
 	if err != nil {
@@ -91,13 +96,13 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Perform an update.
-	err = repo.Update()
+	_, err = bzrReader.Update()
 	if err != nil {
 		t.Error(err)
 	}
 
-	v, err = repo.Version()
-	if v != "3" {
+	v, _, err = bzrReader.RevRead(CoreRev)
+	if string(v.Core()) != "3" {
 		t.Error("Error checking checked out Bzr version")
 	}
 	if err != nil {
@@ -106,8 +111,8 @@ func TestBzr(t *testing.T) {
 
 }
 
-func TestBzrCheckLocal(t *testing.T) {
-	// Verify repo.CheckLocal fails for non-Bzr directories.
+func TestBzrExists(t *testing.T) {
+	// Verify bzrReader.Exists fails for non-Bzr directories.
 	// TestBzr is already checking on a valid repo
 	tempDir, err := ioutil.TempDir("", "go-vcs-bzr-tests")
 	if err != nil {
@@ -120,14 +125,18 @@ func TestBzrCheckLocal(t *testing.T) {
 		}
 	}()
 
-	repo, _ := NewBzrRepo("", tempDir)
-	if repo.CheckLocal() == true {
-		t.Error("Bzr CheckLocal does not identify non-Bzr location")
+	bzrReader, _ := NewBzrReader("", tempDir)
+	exists, err := bzrReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on Bzr repo: %s", err)
+	}
+	if exists == true {
+		t.Error("Bzr Exists does detects bzr repo where one is not")
 	}
 
-	// Test NewRepo when there's no local. This should simply provide a working
+	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
-	_, nrerr := NewRepo("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
+	_, nrerr := NewReader("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}

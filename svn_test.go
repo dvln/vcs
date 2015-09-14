@@ -10,8 +10,8 @@ import (
 // To verify svn is working we perform intergration testing
 // with a known svn service.
 
-// Canary test to ensure SvnRepo implements the Repo interface.
-var _ Repo = &SvnRepo{}
+// Canary test to ensure SvnReader implements the VCS Reader interface.
+var _ Reader = &SvnReader{}
 
 func TestSvn(t *testing.T) {
 
@@ -26,38 +26,42 @@ func TestSvn(t *testing.T) {
 		}
 	}()
 
-	repo, err := NewSvnRepo("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	svnReader, err := NewSvnReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
 	if err != nil {
-		t.Error(err)
+		t.Errorf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
 
-	if repo.Vcs() != Svn {
+	if svnReader.Vcs() != Svn {
 		t.Error("Svn is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if repo.Remote() != "https://github.com/Masterminds/VCSTestRepo/trunk" {
+	if svnReader.Remote() != "https://github.com/Masterminds/VCSTestRepo/trunk" {
 		t.Error("Remote not set properly")
 	}
-	if repo.LocalPath() != tempDir+"/VCSTestRepo" {
+	if svnReader.WkspcPath() != tempDir+"/VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
 	//Logger = log.New(os.Stdout, "", log.LstdFlags)
 
 	// Do an initial checkout.
-	err = repo.Get()
+	_, err = svnReader.Get()
 	if err != nil {
 		t.Errorf("Unable to checkout SVN repo. Err was %s", err)
 	}
 
 	// Verify SVN repo is a SVN repo
-	if repo.CheckLocal() == false {
-		t.Error("Problem checking out repo or SVN CheckLocal is not working")
+	exists, err := svnReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on svn repo: %s", err)
+	}
+	if exists == false {
+		t.Error("Problem checking if SVN repo Exists in the workspace")
 	}
 
-	// Verify an incorrect remote is caught when NewSvnRepo is used on an existing location
-	_, nrerr := NewSvnRepo("https://github.com/Masterminds/VCSTestRepo/unknownbranch", tempDir+"/VCSTestRepo")
+	// Verify an incorrect remote is caught when NewSvnReader is used on an existing location
+	_, nrerr := NewSvnReader("https://github.com/Masterminds/VCSTestRepo/unknownbranch", tempDir+"/VCSTestRepo")
 	if nrerr != ErrWrongRemote {
 		t.Error("ErrWrongRemote was not triggered for SVN")
 	}
@@ -71,30 +75,34 @@ func TestSvn(t *testing.T) {
 		t.Errorf("detectVcsFromFS detected %s instead of Svn type", ltype)
 	}
 
-	// Commenting out auto-detection tests for SVN. NewRepo automatically detects
+	// Commenting out auto-detection tests for SVN. NewReader automatically detects
 	// GitHub to be a Git repo and that's an issue for this test. Need an
 	// SVN host that can autodetect from before using this test again.
 	//
-	// Test NewRepo on existing checkout. This should simply provide a working
+	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	// nrepo, nrerr := NewRepo("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	// nsvnReader, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
 	// if nrerr != nil {
 	// 	t.Error(nrerr)
 	// }
 	// // Verify the right oject is returned. It will check the local repo type.
-	// if nrepo.CheckLocal() == false {
-	// 	t.Error("Wrong version returned from NewRepo")
+	// exists, err = nsvnReader.Exists(Wkspc)
+	// if err != nil {
+	// 	t.Errorf("Existence check failed on svn repo: %s", err)
+	// }
+	// if exists == false {
+	// 	t.Error("Wrong version returned from NewReader")
 	// }
 
 	// Update the version to a previous version.
-	err = repo.UpdateVersion("r2")
+	output, err := svnReader.RevSet("r2")
 	if err != nil {
-		t.Errorf("Unable to update SVN repo version. Err was %s", err)
+		t.Errorf("Unable to update SVN repo version. Err was %s, output:\n%s", err, output)
 	}
 
-	// Use Version to verify we are on the right version.
-	v, err := repo.Version()
-	if v != "2" {
+	// Use RevRead to verify we are on the right version.
+	v, _, err := svnReader.RevRead(CoreRev)
+	if string(v.Core()) != "2" {
 		t.Error("Error checking checked SVN out version")
 	}
 	if err != nil {
@@ -102,14 +110,14 @@ func TestSvn(t *testing.T) {
 	}
 
 	// Perform an update which should take up back to the latest version.
-	err = repo.Update()
+	_, err = svnReader.Update()
 	if err != nil {
 		t.Error(err)
 	}
 
 	// Make sure we are on a newer version because of the update.
-	v, err = repo.Version()
-	if v == "2" {
+	v, _, err = svnReader.RevRead(CoreRev)
+	if string(v.Core()) == "2" {
 		t.Error("Error with version. Still on old version. Update failed")
 	}
 	if err != nil {
@@ -117,8 +125,8 @@ func TestSvn(t *testing.T) {
 	}
 }
 
-func TestSvnCheckLocal(t *testing.T) {
-	// Verify repo.CheckLocal fails for non-SVN directories.
+func TestSvnExists(t *testing.T) {
+	// Verify svnReader.Exists fails for non-SVN directories.
 	// TestSvn is already checking on a valid repo
 	tempDir, err := ioutil.TempDir("", "go-vcs-svn-tests")
 	if err != nil {
@@ -131,14 +139,18 @@ func TestSvnCheckLocal(t *testing.T) {
 		}
 	}()
 
-	repo, _ := NewSvnRepo("", tempDir)
-	if repo.CheckLocal() == true {
-		t.Error("SVN CheckLocal does not identify non-SVN location")
+	svnReader, _ := NewSvnReader("", tempDir)
+	exists, err := svnReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on svn repo: %s", err)
+	}
+	if exists == true {
+		t.Error("SVN repo exists check incorrectlyi indicating existence")
 	}
 
-	// Test NewRepo when there's no local. This should simply provide a working
+	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
-	_, nrerr := NewRepo("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	_, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}

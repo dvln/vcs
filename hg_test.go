@@ -2,13 +2,12 @@ package vcs
 
 import (
 	"io/ioutil"
-	//"log"
 	"os"
 	"testing"
 )
 
-// Canary test to ensure HgRepo implements the Repo interface.
-var _ Repo = &HgRepo{}
+// Canary test to ensure HgReader implements the Reader interface.
+var _ Reader = &HgReader{}
 
 // To verify hg is working we perform intergration testing
 // with a known hg service.
@@ -26,34 +25,38 @@ func TestHg(t *testing.T) {
 		}
 	}()
 
-	repo, err := NewHgRepo("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	hgReader, err := NewHgReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
 	if err != nil {
-		t.Error(err)
+		t.Errorf("Unable to instantiate new Hg VCS reader, Err: %s", err)
 	}
 
-	if repo.Vcs() != Hg {
+	if hgReader.Vcs() != Hg {
 		t.Error("Hg is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if repo.Remote() != "https://bitbucket.org/mattfarina/testhgrepo" {
+	if hgReader.Remote() != "https://bitbucket.org/mattfarina/testhgrepo" {
 		t.Error("Remote not set properly")
 	}
-	if repo.LocalPath() != tempDir+"/testhgrepo" {
+	if hgReader.WkspcPath() != tempDir+"/testhgrepo" {
 		t.Error("Local disk location not set properly")
 	}
 
 	//Logger = log.New(os.Stdout, "", log.LstdFlags)
 
 	// Do an initial clone.
-	err = repo.Get()
+	_, err = hgReader.Get()
 	if err != nil {
 		t.Errorf("Unable to clone Hg repo. Err was %s", err)
 	}
 
 	// Verify Hg repo is a Hg repo
-	if repo.CheckLocal() == false {
-		t.Error("Problem checking out repo or Hg CheckLocal is not working")
+	exists, err := hgReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on hg repo: %s", err)
+	}
+	if exists == false {
+		t.Error("Problem checking out repo or Hg Exists(Wkspc) not working")
 	}
 
 	// Test internal lookup mechanism used outside of Hg specific functionality.
@@ -65,26 +68,30 @@ func TestHg(t *testing.T) {
 		t.Errorf("detectVcsFromFS detected %s instead of Hg type", ltype)
 	}
 
-	// Test NewRepo on existing checkout. This should simply provide a working
+	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	nrepo, nrerr := NewRepo("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	nhgReader, nrerr := NewReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
 	// Verify the right oject is returned. It will check the local repo type.
-	if nrepo.CheckLocal() == false {
-		t.Error("Wrong version returned from NewRepo")
+	exists, err = nhgReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on hg repo: %s", err)
+	}
+	if exists == false {
+		t.Error("Wrong version returned from NewReader")
 	}
 
 	// Set the version using the short hash.
-	err = repo.UpdateVersion("a5494ba2177f")
+	_, err = hgReader.RevSet("a5494ba2177f")
 	if err != nil {
 		t.Errorf("Unable to update Hg repo version. Err was %s", err)
 	}
 
-	// Use Version to verify we are on the right version.
-	v, err := repo.Version()
-	if v != "a5494ba2177f" {
+	// Use RevRead to verify we are on the right version.
+	v, _, err := hgReader.RevRead(CoreRev)
+	if string(v.Core()) != "a5494ba2177f" {
 		t.Error("Error checking checked out Hg version")
 	}
 	if err != nil {
@@ -92,13 +99,13 @@ func TestHg(t *testing.T) {
 	}
 
 	// Perform an update.
-	err = repo.Update()
+	_, err = hgReader.Update()
 	if err != nil {
 		t.Error(err)
 	}
 
-	v, err = repo.Version()
-	if v != "d680e82228d2" {
+	v, _, err = hgReader.RevRead(CoreRev)
+	if string(v.Core()) != "d680e82228d2" {
 		t.Error("Error checking checked out Hg version")
 	}
 	if err != nil {
@@ -107,8 +114,8 @@ func TestHg(t *testing.T) {
 
 }
 
-func TestHgCheckLocal(t *testing.T) {
-	// Verify repo.CheckLocal fails for non-Hg directories.
+func TestHgExists(t *testing.T) {
+	// Verify hgReader.Exists fails for non-Hg directories.
 	// TestHg is already checking on a valid repo
 	tempDir, err := ioutil.TempDir("", "go-vcs-hg-tests")
 	if err != nil {
@@ -121,14 +128,18 @@ func TestHgCheckLocal(t *testing.T) {
 		}
 	}()
 
-	repo, _ := NewHgRepo("", tempDir)
-	if repo.CheckLocal() == true {
-		t.Error("Hg CheckLocal does not identify non-Hg location")
+	hgReader, _ := NewHgReader("", tempDir)
+	exists, err := hgReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on hg repo: %s", err)
+	}
+	if exists == true {
+		t.Error("Hg Exists() does not identify non-Hg location")
 	}
 
-	// Test NewRepo when there's no local. This should simply provide a working
+	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
-	_, nrerr := NewRepo("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	_, nrerr := NewReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}

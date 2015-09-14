@@ -3,109 +3,97 @@ package vcs
 import (
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
+	"regexp"
+
+    "github.com/dvln/util/dir"
 )
 
 var bzrDetectURL = regexp.MustCompile("parent branch: (?P<foo>.+)\n")
 
-// NewBzrRepo creates a new instance of BzrRepo. The remote and local directories
-// need to be passed in.
-func NewBzrRepo(remote, local string) (*BzrRepo, error) {
-	ltype, err := DetectVcsFromFS(local)
-
-	// Found a VCS other than Bzr. Need to report an error.
-	if err == nil && ltype != Bzr {
-		return nil, ErrWrongVCS
+// BzrGet is used to perform an initial clone of a repository.
+func BzrGet(g Getter, rev ...Rev) (string, error) {
+	var output string
+	var err error
+	if rev == nil || ( rev != nil && rev[0] == "" ) {
+		output, err = run("bzr", "branch", g.Remote(), g.WkspcPath())
+	} else {
+		output, err = run("bzr", "branch", "-r", string(rev[0]), g.Remote(), g.WkspcPath())
 	}
-
-	r := &BzrRepo{}
-	r.setRemote(remote)
-	r.setLocalPath(local)
-	r.Logger = Logger
-
-	// With the other VCS we can check if the endpoint locally is different
-	// from the one configured internally. But, with Bzr you can't. For example,
-	// if you do `bzr branch https://launchpad.net/govcstestbzrrepo` and then
-	// use `bzr info` to get the parent branch you'll find it set to
-	// http://bazaar.launchpad.net/~mattfarina/govcstestbzrrepo/trunk/. Notice
-	// the change from https to http and the path chance.
-	// Here we set the remote to be the local one if none is passed in.
-	if err == nil && r.CheckLocal() == true && remote == "" {
-		oldDir, err := os.Getwd()
-		if err != nil {
-			return nil, err
-		}
-		os.Chdir(local)
-		defer os.Chdir(oldDir)
-		out, err := exec.Command("bzr", "info").CombinedOutput()
-		if err != nil {
-			return nil, err
-		}
-		m := bzrDetectURL.FindStringSubmatch(string(out))
-
-		// If no remote was passed in but one is configured for the locally
-		// checked out Bzr repo use that one.
-		if m[1] != "" {
-			r.setRemote(m[1])
-		}
-	}
-
-	return r, nil
+	return output, err
 }
 
-// BzrRepo implements the Repo interface for the Bzr source control.
-type BzrRepo struct {
-	base
-}
-
-// Vcs retrieves the underlying VCS being implemented.
-func (s BzrRepo) Vcs() Type {
-	return Bzr
-}
-
-// Get is used to perform an initial clone of a repository.
-func (s *BzrRepo) Get() error {
-	return s.run("bzr", "branch", s.Remote(), s.LocalPath())
-}
-
-// Update performs a Bzr pull and update to an existing checkout.
-func (s *BzrRepo) Update() error {
-	err := s.runFromDir("bzr", "pull")
+// BzrUpdate performs a Bzr pull and update to an existing checkout.
+func BzrUpdate(u Updater, rev ...Rev) (string, error) {
+	output, err := runFromWkspcDir(u.WkspcPath(), "bzr", "pull")
 	if err != nil {
-		return err
+		return output, err
 	}
-	return s.runFromDir("bzr", "update")
+	var updOut string
+	if rev == nil || ( rev != nil && rev[0] == "" ) {
+		updOut, err = runFromWkspcDir(u.WkspcPath(), "bzr", "update")
+	} else {
+		updOut, err = runFromWkspcDir(u.WkspcPath(), "bzr", "update", "-r", string(rev[0]))
+	}
+	output = output + updOut
+	return output, err
 }
 
-// UpdateVersion sets the version of a package currently checked out via Bzr.
-func (s *BzrRepo) UpdateVersion(version string) error {
-	return s.runFromDir("bzr", "update", "-r", version)
+// BzrRevSet sets the wkspc revision of a pkg currently checked out via Bzr.
+// Note that a single specific revision must be given (vs a generic
+// Revision structure as such a struct may have <N> different valid rev's
+// that reference the revision).  The output (if any) and any error
+// is returned from the svn update run.
+func BzrRevSet(r RevSetter, rev Rev) (string, error) {
+	return runFromWkspcDir(r.WkspcPath(), "bzr", "update", "-r", string(rev))
 }
 
-// Version retrieves the current version.
-func (s *BzrRepo) Version() (string, error) {
-
+// BzrRevRead retrieves the current version (and any cmd out for what was run)
+func BzrRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
 	oldDir, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	os.Chdir(s.LocalPath())
-	defer os.Chdir(oldDir)
-
-	out, err := exec.Command("bzr", "revno", "--tree").CombinedOutput()
+	err = os.Chdir(r.WkspcPath())
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
+	defer os.Chdir(oldDir)
+	var output []byte
 
-	return strings.TrimSpace(string(out)), nil
+	rev := &Revision{}
+	if scope == nil || ( scope != nil && scope[0] == CoreRev ) {
+		// client just wants the core/base VCS revision only..
+		output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+		if err != nil {
+			return nil, string(output), err
+		}
+		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+	} else {
+		//FIXME: erik: get additional data about the version if possible (fix this)
+		output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+		if err != nil {
+			return nil, string(output), err
+		}
+		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+	}
+	return rev, string(output), err
 }
 
-// CheckLocal verifies the local location is a Bzr repo.
-func (s *BzrRepo) CheckLocal() bool {
-	if _, err := os.Stat(s.LocalPath() + "/.bzr"); err == nil {
-		return true
+// BzrExists verifies the wkspc or remote location is of the Bzr repo type
+func BzrExists(e Existence, l Location) (bool, error) {
+	var err error
+	if l == Wkspc {
+		if there, err := dir.Exists(e.WkspcPath() + "/.bzr"); there && err == nil {
+			return true, nil
+		}
+		//FIXME: erik: if err != nil should use something like:
+		//       out.WrapErrf(ErrNoExists, #, "%v bzr location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
+	} else {
+		//FIXME: erik: need to actually check if remote repo exists ;)
+		// should use this "ErrNoExist" from repo.go if doesn't exist
+		return true, nil
 	}
-
-	return false
+	return false, err
 }
+

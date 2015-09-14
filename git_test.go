@@ -2,13 +2,12 @@ package vcs
 
 import (
 	"io/ioutil"
-	//"log"
 	"os"
 	"testing"
 )
 
-// Canary test to ensure GitRepo implements the Repo interface.
-var _ Repo = &GitRepo{}
+// Canary test to ensure GitReader implements the Reader interface.
+var _ Reader = &GitReader{}
 
 // To verify git is working we perform intergration testing
 // with a known git service.
@@ -26,34 +25,36 @@ func TestGit(t *testing.T) {
 		}
 	}()
 
-	repo, err := NewGitRepo("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
+	gitReader, err := NewGitReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
 	if err != nil {
-		t.Error(err)
+		t.Errorf("Unable to instantiate new Git VCS reader, Err: %s", err)
 	}
 
-	if repo.Vcs() != Git {
+	if gitReader.Vcs() != Git {
 		t.Error("Git is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if repo.Remote() != "https://github.com/Masterminds/VCSTestRepo" {
+	if gitReader.Remote() != "https://github.com/Masterminds/VCSTestRepo" {
 		t.Error("Remote not set properly")
 	}
-	if repo.LocalPath() != tempDir+"/VCSTestRepo" {
+	if gitReader.WkspcPath() != tempDir+"/VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
-	//Logger = log.New(os.Stdout, "", log.LstdFlags)
-
 	// Do an initial clone.
-	err = repo.Get()
+	_, err = gitReader.Get()
 	if err != nil {
-		t.Errorf("Unable to clone Git repo. Err was %s", err)
+		t.Errorf("Unable to clone Git repo using VCS reader Get(). Err was %s", err)
 	}
 
-	// Verify Git repo is a Git repo
-	if repo.CheckLocal() == false {
-		t.Error("Problem checking out repo or Git CheckLocal is not working")
+	// Verify Git repo exists in the workspace
+	exists, err := gitReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on git repo: %s", err)
+	}
+	if exists == false {
+		t.Error("Problem seeing if Git repo exists in workspace")
 	}
 
 	// Test internal lookup mechanism used outside of Git specific functionality.
@@ -65,50 +66,54 @@ func TestGit(t *testing.T) {
 		t.Errorf("detectVcsFromFS detected %s instead of Git type", ltype)
 	}
 
-	// Test NewRepo on existing checkout. This should simply provide a working
+	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	nrepo, nrerr := NewRepo("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
+	ngitReader, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
-	// Verify the right oject is returned. It will check the local repo type.
-	if nrepo.CheckLocal() == false {
-		t.Error("Wrong version returned from NewRepo")
+	// See if the new git VCS reader was instantiated in the workspace
+	exists, err = ngitReader.Exists(Wkspc)
+	if err != nil {
+		t.Errorf("Existence check failed on git repo: %s", err)
+	}
+	if exists == false {
+		t.Error("The git reader was not correctly instantiated in the workspace")
 	}
 
-	// Perform an update.
-	err = repo.Update()
+	// Perform an update operation
+	_, err = gitReader.Update()
 	if err != nil {
 		t.Error(err)
 	}
 
 	// Set the version using the short hash.
-	err = repo.UpdateVersion("806b07b")
+	_, err = gitReader.RevSet("806b07b")
 	if err != nil {
 		t.Errorf("Unable to update Git repo version. Err was %s", err)
 	}
 
-	// Use Version to verify we are on the right version.
-	v, err := repo.Version()
-	if v != "806b07b08faa21cfbdae93027904f80174679402" {
-		t.Error("Error checking checked out Git version")
+	// Use RevRead to verify we are on the right version.
+	v, _, err := gitReader.RevRead(CoreRev)
+	if string(v.Core()) != "806b07b08faa21cfbdae93027904f80174679402" {
+		t.Errorf("Error checking checked out Git version, found: \"%s\"\n", string(v.Core()))
 	}
 	if err != nil {
 		t.Error(err)
 	}
 
 	// Verify that we can set the version something other than short hash
-	err = repo.UpdateVersion("master")
+	_, err = gitReader.RevSet("master")
 	if err != nil {
 		t.Errorf("Unable to update Git repo version. Err was %s", err)
 	}
-	err = repo.UpdateVersion("806b07b08faa21cfbdae93027904f80174679402")
+	_, err = gitReader.RevSet("806b07b08faa21cfbdae93027904f80174679402")
 	if err != nil {
 		t.Errorf("Unable to update Git repo version. Err was %s", err)
 	}
-	v, err = repo.Version()
-	if v != "806b07b08faa21cfbdae93027904f80174679402" {
-		t.Error("Error checking checked out Git version")
+	v, _, err = gitReader.RevRead(CoreRev)
+	if string(v.Core()) != "806b07b08faa21cfbdae93027904f80174679402" {
+		t.Errorf("Error checking checked out Git version, found: \"%s\"\n", string(v.Core()))
 	}
 	if err != nil {
 		t.Error(err)
@@ -130,14 +135,15 @@ func TestGitCheckLocal(t *testing.T) {
 		}
 	}()
 
-	repo, _ := NewGitRepo("", tempDir)
-	if repo.CheckLocal() == true {
-		t.Error("Git CheckLocal does not identify non-Git location")
+	gitReader, _ := NewGitReader("", tempDir)
+	exists, err := gitReader.Exists(Wkspc)
+	if exists == true {
+		t.Error("Git Exists is not correctly identifying non-Git pkg/repo")
 	}
 
-	// Test NewRepo when there's no local. This should simply provide a working
+	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
-	_, nrerr := NewRepo("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
+	_, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
