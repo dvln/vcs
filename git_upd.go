@@ -13,12 +13,6 @@
 
 package vcs
 
-import (
-	"os"
-	"os/exec"
-	"strings"
-)
-
 // GitUpdater implements the VCS Updater interface for the Git source control,
 // start out by adding a base VCS description structure (implements Describer)
 type GitUpdater struct {
@@ -29,58 +23,25 @@ type GitUpdater struct {
 // need to be passed in.
 func NewGitUpdater(remote, wkspc string) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
-
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
+	u := &GitUpdater{}
+	u.setRemote(remote)
+	u.setWkspcPath(wkspc)
+	u.setVcs(Git)
+	u.setRemoteRepoName("origin")
+	//FIXME: erik: weak, origin is hard coded here and in GitCheckRemote()
 
-	r := &GitUpdater{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Git)
-	r.setRemoteRepoName("origin")
-	//FIXME: erik: this is weak, need to support flexibility depending upon
-	//       detail a client may have wanted (eg: update from vendor repo or
-	//       joe's repo or whatever, etc)... consider improvements, see
-	//       "git config --get remote.origin.url" hard coded below as well
-    //         gitdir% git config --get remote.origin.url
-    //         ssh://sjc-acmegit-v01:29718/acme/acme
-    //         gitdir% remote -v
-    //         origin	ssh://sjc-acmegit-v01:29718/acme/acme (fetch)
-    //         origin	ssh://sjc-acmegit-v01:29718/acme/acme (push)
-    //         %
-
-	// Make sure the wkspc Git repo is configured the same as the remote when
-	// A remote value was passed in.
-	if exists, chkErr := r.Exists(Wkspc); err == nil && chkErr == nil && exists {
-		oldDir, err := os.Getwd()
+	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
+		remote, _, err = GitCheckRemote(u, remote)
 		if err != nil {
 			return nil, err
 		}
-		err = os.Chdir(wkspc)
-		if err != nil {
-			return nil, err
-		}
-		defer os.Chdir(oldDir)
-		output, err := exec.Command("git", "config", "--get", "remote.origin.url").CombinedOutput()
-		if err != nil {
-			return nil, err
-		}
-
-		localRemote := strings.TrimSpace(string(output))
-		if remote != "" && localRemote != remote {
-			return nil, ErrWrongRemote
-		}
-
-		// If no remote was passed in but one is configured for the locally
-		// checked out Git repo use that one.
-		if remote == "" && localRemote != "" {
-			r.setRemote(localRemote)
-		}
+		u.setRemote(remote)
 	}
-
-	return r, nil
+	return u, nil
 }
 
 // Update allows generic git updater to update VCS's, like git fetch+merge

@@ -1,10 +1,5 @@
 package vcs
 
-import (
-	"os"
-	"os/exec"
-)
-
 // HgUpdater implements the Repo interface for the Mercurial source control.
 type HgUpdater struct {
 	Description
@@ -14,47 +9,22 @@ type HgUpdater struct {
 // need to be passed in.
 func NewHgUpdater(remote, wkspc string) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
-
 	// Found a VCS other than Hg. Need to report an error.
 	if err == nil && ltype != Hg {
 		return nil, ErrWrongVCS
 	}
-
-	r := &HgUpdater{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Hg)
-
-	// Make sure the wkspc Hg repo is configured the same as the remote when
-	// A remote value was passed in.
-	if exists, chkErr := r.Exists(Wkspc); err == nil && chkErr == nil && exists {
-		// An Hg repo was found so test that the URL there matches
-		// the repo passed in here.
-		oldDir, err := os.Getwd()
+	u := &HgUpdater{}
+	u.setRemote(remote)
+	u.setWkspcPath(wkspc)
+	u.setVcs(Hg)
+	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
+		remote, _, err = HgCheckRemote(u, remote)
 		if err != nil {
 			return nil, err
 		}
-		os.Chdir(wkspc)
-		//FIXME: erik: this should be checked
-		defer os.Chdir(oldDir)
-		output, err := exec.Command("hg", "paths").CombinedOutput()
-		if err != nil {
-			return nil, err
-		}
-
-		m := hgDetectURL.FindStringSubmatch(string(output))
-		if m[1] != "" && m[1] != remote {
-			return nil, ErrWrongRemote
-		}
-
-		// If no remote was passed in but one is configured for the locally
-		// checked out Hg repo use that one.
-		if remote == "" && m[1] != "" {
-			r.setRemote(m[1])
-		}
+		u.setRemote(remote)
 	}
-
-	return r, nil
+	return u, nil
 }
 
 // Update support for hg updater

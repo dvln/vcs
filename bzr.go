@@ -97,3 +97,44 @@ func BzrExists(e Existence, l Location) (bool, error) {
 	return false, err
 }
 
+// BzrCheckRemote attempts to take a remote string (URL) and validate
+// it (although with Bzr that doesn't work well) and set it if it is not
+// currently set (this happens if a local clone exists only).  Returns:
+// - string: this is the new remote (current remote returned if no new remote)
+// - string: output of the Bzr command to try and determine the remote
+// - error: non-nil if an error occurred
+func BzrCheckRemote(e Existence, remote string) (string, string, error) {
+	// With the other VCS we can check if the endpoint locally is different
+	// from the one configured internally. But, with Bzr you can't. For example,
+	// if you do `bzr branch https://launchpad.net/govcstestbzrrepo` and then
+	// use `bzr info` to get the parent branch you'll find it set to
+	// http://bazaar.launchpad.net/~mattfarina/govcstestbzrrepo/trunk/. Notice
+	// the change from https to http and the path chance.
+	// Here we set the remote to be the local one if none is passed in.
+	var outStr string
+	if exists, err := e.Exists(Wkspc); err == nil && exists && remote == "" {
+		oldDir, err := os.Getwd()
+		if err != nil {
+			return remote, "", err
+		}
+		err = os.Chdir(e.WkspcPath())
+		if err != nil {
+			return remote, "", err
+		}
+		defer os.Chdir(oldDir)
+		output, err := exec.Command("bzr", "info").CombinedOutput()
+		if err != nil {
+			return remote, string(output), err
+		}
+		outStr = string(output)
+		m := bzrDetectURL.FindStringSubmatch(outStr)
+
+		// If no remote was passed in but one is configured for the locally
+		// checked out Bzr VCS pkg (repo) use that one.
+		if m[1] != "" {
+			return m[1], outStr, nil
+		}
+	}
+	return remote, outStr, nil
+}
+

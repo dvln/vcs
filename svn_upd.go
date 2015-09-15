@@ -1,9 +1,5 @@
 package vcs
 
-import (
-	"os/exec"
-)
-
 // SvnUpdater implements the Repo interface for the Svn source control.
 type SvnUpdater struct {
 	Description
@@ -15,40 +11,22 @@ type SvnUpdater struct {
 // should be https://github.com/Masterminds/cookoo/trunk for the trunk branch.
 func NewSvnUpdater(remote, wkspc string) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
-
 	// Found a VCS other than Svn. Need to report an error.
 	if err == nil && ltype != Svn {
 		return nil, ErrWrongVCS
 	}
-
-	r := &SvnUpdater{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Svn)
-
-	// Make sure the wkspc SVN repo is configured the same as the remote when
-	// A remote value was passed in.
-	if exists, chkErr := r.Exists(Wkspc); err == nil && chkErr == nil && exists {
-		// An SVN repo was found so test that the URL there matches
-		// the repo passed in here.
-		output, err := exec.Command("svn", "info", wkspc).CombinedOutput()
+	u := &SvnUpdater{}
+	u.setRemote(remote)
+	u.setWkspcPath(wkspc)
+	u.setVcs(Svn)
+	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
+		remote, _, err = SvnCheckRemote(u, remote)
 		if err != nil {
 			return nil, err
 		}
-
-		m := svnDetectURL.FindStringSubmatch(string(output))
-		if m[1] != "" && m[1] != remote {
-			return nil, ErrWrongRemote
-		}
-
-		// If no remote was passed in but one is configured for the locally
-		// checked out Svn repo use that one.
-		if remote == "" && m[1] != "" {
-			r.setRemote(m[1])
-		}
+		u.setRemote(remote)
 	}
-
-	return r, nil
+	return u, nil
 }
 
 // Update support for svn updater

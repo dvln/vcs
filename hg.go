@@ -142,3 +142,45 @@ func HgExists(e Existence, l Location) (bool, error) {
 	return false, err
 }
 
+// HgCheckRemote  attempts to take a remote string (URL) and validate
+// it against any local repo and try and set it when it is empty.  Returns:
+// - string: this is the new remote (current remote returned if no new remote)
+// - string: output of the Bzr command to try and determine the remote
+// - error: non-nil if an error occurred
+func HgCheckRemote (e Existence, remote string) (string, string, error) {
+	// Make sure the wkspc Hg repo is configured the same as the remote when
+	// A remote value was passed in.
+	var outStr string
+	if exists, err := e.Exists(Wkspc); err == nil && exists {
+		// An Hg repo was found so test that the URL there matches
+		// the repo passed in here.
+		oldDir, err := os.Getwd()
+		if err != nil {
+			return remote, "", err
+		}
+		err = os.Chdir(e.WkspcPath())
+		if err != nil {
+			return remote, "", err
+		}
+		defer os.Chdir(oldDir)
+		output, err := exec.Command("hg", "paths").CombinedOutput()
+		if err != nil {
+			return remote, string(output), err
+		}
+
+		outStr = string(output)
+		m := hgDetectURL.FindStringSubmatch(outStr)
+		//FIXME: erik: added that remote != "", think it's needed, check
+		if remote != "" && m[1] != "" && m[1] != remote {
+			return remote, outStr, ErrWrongRemote
+		}
+
+		// If no remote was passed in but one is configured for the locally
+		// checked out Hg repo use that one.
+		if remote == "" && m[1] != "" {
+			return m[1], outStr, nil
+		}
+	}
+	return remote, outStr, nil
+}
+

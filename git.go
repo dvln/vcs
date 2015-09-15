@@ -113,3 +113,41 @@ func GitExists(e Existence, l Location) (bool, error) {
 	return false, err
 }
 
+// GitCheckRemote  attempts to take a remote string (URL) and validate
+// it against any local repo and try and set it when it is empty.  Returns:
+// - string: this is the new remote (current remote returned if no new remote)
+// - string: output of the Bzr command to try and determine the remote
+// - error: non-nil if an error occurred
+func GitCheckRemote (e Existence, remote string) (string, string, error) {
+	// Make sure the wkspc Git repo is configured the same as the remote when
+	// a remote value was passed in, if no remote try and determine it here
+	var outStr string
+	if exists, err := e.Exists(Wkspc); err == nil && exists {
+		oldDir, err := os.Getwd()
+		if err != nil {
+			return remote, "", err
+		}
+		err = os.Chdir(e.WkspcPath())
+		if err != nil {
+			return remote, "", err
+		}
+		defer os.Chdir(oldDir)
+		output, err := exec.Command("git", "config", "--get", "remote.origin.url").CombinedOutput()
+		if err != nil {
+			return remote, string(output), err
+		}
+
+		outStr = string(output)
+		localRemote := strings.TrimSpace(outStr)
+		if remote != "" && localRemote != remote {
+			return remote, outStr, ErrWrongRemote
+		}
+
+		// If no remote was passed in but one is configured for the locally
+		// checked out Git repo use that one.
+		if remote == "" && localRemote != "" {
+			return localRemote, outStr, nil
+		}
+	}
+	return remote, outStr, nil
+}
