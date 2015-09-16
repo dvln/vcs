@@ -60,8 +60,8 @@ func (r *GitReader) RevSet(rev Rev) (string, error) {
 }
 
 // RevRead support for git reader
-func (r *GitReader) RevRead(scope ...ReadScope) (*Revision, string, error) {
-	return GitRevRead(r, scope...)
+func (r *GitReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+	return GitRevRead(r, scope, vcsRev...)
 }
 
 // Exists support for git reader

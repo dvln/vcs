@@ -95,8 +95,8 @@ func TestGit(t *testing.T) {
 
 	// Use RevRead to verify we are on the right version.
 	v, _, err := gitReader.RevRead(CoreRev)
-	if string(v.Core()) != "806b07b08faa21cfbdae93027904f80174679402" {
-		t.Errorf("Error checking checked out Git version, found: \"%s\"\n", string(v.Core()))
+	if string(v[0].Core()) != "806b07b08faa21cfbdae93027904f80174679402" {
+		t.Errorf("Error checking checked out Git version, found: \"%s\"\n", string(v[0].Core()))
 	}
 	if err != nil {
 		t.Error(err)
@@ -112,8 +112,8 @@ func TestGit(t *testing.T) {
 		t.Errorf("Unable to update Git repo version. Err was %s", err)
 	}
 	v, _, err = gitReader.RevRead(CoreRev)
-	if string(v.Core()) != "806b07b08faa21cfbdae93027904f80174679402" {
-		t.Errorf("Error checking checked out Git version, found: \"%s\"\n", string(v.Core()))
+	if string(v[0].Core()) != "806b07b08faa21cfbdae93027904f80174679402" {
+		t.Errorf("Error checking checked out Git version, found: \"%s\"\n", string(v[0].Core()))
 	}
 	if err != nil {
 		t.Error(err)

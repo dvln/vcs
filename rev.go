@@ -11,12 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The rev.go part of the 'vcs' package is focused around storing and
-// working with a VCS revision read in from a given VCS system.  The
-// data may be partial or complete depending upon the need (ie: fast
-// read may only read in the core/raw VCS revision whereas a full data
-// read will try and find tag and branch and timestamp info as well).
+// The rev.go part of the 'vcs' package is focused around reading and
+// possibly updating an existing VCS revisions meta-data.  The metadata
+// read may be partial or complete depending upon the desire (ie: basic
+// core/raw VCS version) info or full data (committer, author, dates,
+// comment, tags, known branch(es), known semantic versions or other
+// key versions plus the raw/core VCS version identifier, eg: sha1).
+// Reading more data can take more time.
 // - caching will need to be added over time (and flushing, etc)
+// - eventually greater flexibility than minimal or all should be
+// added, perhaps via a bit configuration field or something
 
 package vcs
 
@@ -123,7 +127,7 @@ type RevReader interface {
     Describer
 
 	// RevRead retrieves the current in-workspace VCS core/raw revision
-	RevRead(...ReadScope) (*Revision, string, error)
+	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
 }
 
 // RevSetter changes the current workspace revision of a pkg/repo
@@ -143,16 +147,30 @@ type RevWriter interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
     Describer
 
-	// RevWrite examines the revision and verifies that all revision
+	// RevCommit examines the revision and verifies that all revision
     // setting are applied (all tags, all branch latest, etc)... if
     // anything is changed 'true' will be returned, only changes the
     // workspace state (local clone for DVCS, in-memory structure
-    // only for CVCS)... RevPush sends to remote
-    // affects the local clone until RevPush
-	RevWrite(*Revision) (bool, error)
+    // only for CVCS)... see RevPush() for updating remote (central) VCS
+	RevCommit(*Revision) (bool, error)
 
     // RevPush will push local revision changes to central clone/repo
 	RevPush() error
+}
+
+// RevReadSetWriter combines the ability to read, set and write (commit/push)
+// a VCS revision details (meta-data).
+type RevReadSetWriter interface {
+	// Describer access to VCS system details (Remote, WkspcPath, ..)
+    Describer
+
+	// RevRead retrieves the current in-workspace VCS core/raw revision
+	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
+
+	// RevSet sets the revision of a package/repo (eg: git checkout)
+	RevSet(Rev) (string, error)
+
+	// FIXME: erik: get RevCommit and RevPush added in here
 }
 
 // NewRevision will contruct a new empty revision structure

@@ -88,7 +88,7 @@ func TestBzr(t *testing.T) {
 
 	// Use Version to verify we are on the right version.
 	v, _, err := bzrReader.RevRead(CoreRev)
-	if string(v.Core()) != "2" {
+	if string(v[0].Core()) != "2" {
 		t.Error("Error checking checked out Bzr version")
 	}
 	if err != nil {
@@ -102,7 +102,7 @@ func TestBzr(t *testing.T) {
 	}
 
 	v, _, err = bzrReader.RevRead(CoreRev)
-	if string(v.Core()) != "3" {
+	if string(v[0].Core()) != "3" {
 		t.Error("Error checking checked out Bzr version")
 	}
 	if err != nil {

@@ -43,8 +43,8 @@ func (r *BzrReader) RevSet(rev Rev) (string, error) {
 }
 
 // RevRead support for bzr reader
-func (r *BzrReader) RevRead(scope ...ReadScope) (*Revision, string, error) {
-	return BzrRevRead(r, scope...)
+func (r *BzrReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+	return BzrRevRead(r, scope, vcsRev...)
 }
 
 // Exists support for bzr reader

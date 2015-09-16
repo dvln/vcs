@@ -91,7 +91,7 @@ func TestHg(t *testing.T) {
 
 	// Use RevRead to verify we are on the right version.
 	v, _, err := hgReader.RevRead(CoreRev)
-	if string(v.Core()) != "a5494ba2177f" {
+	if string(v[0].Core()) != "a5494ba2177f" {
 		t.Error("Error checking checked out Hg version")
 	}
 	if err != nil {
@@ -105,7 +105,7 @@ func TestHg(t *testing.T) {
 	}
 
 	v, _, err = hgReader.RevRead(CoreRev)
-	if string(v.Core()) != "d680e82228d2" {
+	if string(v[0].Core()) != "d680e82228d2" {
 		t.Error("Error checking checked out Hg version")
 	}
 	if err != nil {

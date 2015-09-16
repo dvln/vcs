@@ -1,6 +1,7 @@
 package vcs
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -46,8 +47,19 @@ func SvnRevSet(r RevSetter, rev Rev) (string, error) {
 	return runFromWkspcDir(r.WkspcPath(), "svn", "update", "-r", string(rev))
 }
 
-// SvnRevRead retrieves the current version.
-func SvnRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
+// SvnRevRead retrieves the given or current wkspc rev.  A Revision struct
+// pointer is returned (how filled out depends upon if the read is just the
+// basic core/raw VCS revision or full data for the given VCS which will
+// include tags, branches, timestamp info, author/committer, date, comment).
+// Note: this reads one version but that could be expanded to take <N>
+// revisions or a range, eg SvnRevRead(reader, <scope>, rev1, "..", rev2),
+// without changing this methods params or return signature (but code
+// changes  would be needed)
+func SvnRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+	specificRev := ""
+	if vcsRev != nil && vcsRev[0] != "" {
+		specificRev = string(vcsRev[0])
+	}
 	oldDir, err := os.Getwd()
 	if err != nil {
 		return nil, "", err
@@ -60,26 +72,39 @@ func SvnRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
 	var output []byte
 
 	rev := &Revision{}
-	if scope == nil || ( scope != nil && scope[0] == CoreRev ) {
+	var revs []Revisioner
+	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		//FIXME: erik: based on SVN docs this doesn't seem like it
 		//       can handle the various output formats correctly with
 		//       modifiers like "<rev#>M" or "<rev#>S" or "<rev#>:<rev#>",
 		//       see svnversion -h, perhaps update
-		output, err = exec.Command("svnversion", ".").CombinedOutput()
+		//       Also: specificRev isn't implemented for SVN, is it possible?
+		if specificRev != "" {
+			return nil, "", fmt.Errorf("Reading specified revision, %s, not supported by SVN", specificRev)
+		} else {
+			output, err = exec.Command("svnversion", ".").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		revs = append(revs, rev)
 	} else {
 		//FIXME: erik: this needs to add more data if possible for SVN
-		output, err = exec.Command("svnversion", ".").CombinedOutput()
+		//       Also: specificRev isn't implemented for SVN, is it possible?
+		if specificRev != "" {
+			return nil, "", fmt.Errorf("Reading specified revision, %s, not supported by SVN", specificRev)
+		} else {
+			output, err = exec.Command("svnversion", ".").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		revs = append(revs, rev)
 	}
-	return rev, string(output), err
+	return revs, string(output), err
 }
 
 // SvnExists verifies the wkspc or remote location is of the SVN type

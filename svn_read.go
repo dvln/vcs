@@ -45,8 +45,8 @@ func (r *SvnReader) RevSet(rev Rev) (string, error) {
 }
 
 // RevRead support for svn reader
-func (r *SvnReader) RevRead(scope ...ReadScope) (*Revision, string, error) {
-	return SvnRevRead(r, scope...)
+func (r *SvnReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+	return SvnRevRead(r, scope, vcsRev...)
 }
 
 // Exists support for svn reader

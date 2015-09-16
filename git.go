@@ -56,13 +56,15 @@ func GitRevSet(r RevSetter, rev Rev) (string, error) {
 	return runFromWkspcDir(r.WkspcPath(), "git", "checkout", string(rev))
 }
 
-// GitRevRead retrieves the current workspace revision.  The returned item is a
-// revision structure (how filled out depends upon if the read is optimized
-// for speed in which case just the raw VCS revision is read, or if full
-// data is requested than tags/branch refs, etc and "timestamp" of the
-// revision are added.
-//FIXME: erik: consider returning a Revisioner intfc (?)
-func GitRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
+// GitRevRead retrieves the given or current wkspc rev.  A Revision struct
+// pointer is returned (how filled out depends upon if the read is just the
+// basic core/raw VCS revision or full data for the given VCS which will
+// include tags, branches, timestamp info, author/committer, date, comment).
+// Note: this reads one version but that could be expanded to take <N>
+// revisions or a range, eg GitRevRead(reader, <scope>, rev1, "..", rev2),
+// without changing this methods params or return signature (but code
+// changes  would be needed)
+func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
 	oldDir, err := os.Getwd()
 	if err != nil {
 		return nil, "", err
@@ -71,29 +73,44 @@ func GitRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	specificRev := ""
+	if vcsRev != nil && vcsRev[0] != "" {
+		specificRev = string(vcsRev[0])
+	}
 	var output []byte
 	defer os.Chdir(oldDir)
 	rev := &Revision{}
-	if scope == nil || ( scope != nil && scope[0] == CoreRev ) {
+	var revs []Revisioner
+	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
-		output, err = exec.Command("git", "log", "-1", "--format=%H").CombinedOutput()
+		if specificRev != "" {
+			output, err = exec.Command("git", "log", "-1", "--format=%H", specificRev).CombinedOutput()
+		} else {
+			output, err = exec.Command("git", "log", "-1", "--format=%H").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		revs = append(revs, rev)
 	} else {
 		//FIXME: erik: correct the full data one to run something like this:
 		//% git log -1 --format='%H [%cD]%d'
         //a862506d017d643091368d53128447d032a03f54 [Thu, 11 Sep 2014 17:45:32 -0700] (HEAD -> topic, tag: main/7353, tag: acme__main__new__1410482753, origin/main, origin/HEAD)
 		//should also add author+authorid+committer+committerid and then add in the
 		//revision comment on the line following that data
-		output, err := exec.Command("git", "log", "-1", "--format=%H").CombinedOutput()
+		if specificRev != "" {
+			output, err = exec.Command("git", "log", "-1", "--format=%H", specificRev).CombinedOutput()
+		} else {
+			output, err = exec.Command("git", "log", "-1", "--format=%H").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		revs = append(revs, rev)
 	}
-	return rev, string(output), nil
+	return revs, string(output), nil
 }
 
 // GitExists verifies the wkspc or remote location is a Git repo.

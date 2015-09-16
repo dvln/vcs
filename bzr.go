@@ -48,8 +48,19 @@ func BzrRevSet(r RevSetter, rev Rev) (string, error) {
 	return runFromWkspcDir(r.WkspcPath(), "bzr", "update", "-r", string(rev))
 }
 
-// BzrRevRead retrieves the current version (and any cmd out for what was run)
-func BzrRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
+// BzrRevRead retrieves the given or current wkspc rev.  A Revision struct
+// pointer is returned (how filled out depends upon if the read is just the
+// basic core/raw VCS revision or full data for the given VCS which will
+// include tags, branches, timestamp info, author/committer, date, comment).
+// Note: this reads one version but that could be expanded to take <N>
+// revisions or a range, eg BzrRevRead(reader, <scope>, rev1, "..", rev2),
+// without changing this methods params or return signature (but code
+// changes  would be needed)
+func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+	specificRev := ""
+	if vcsRev != nil && vcsRev[0] != "" {
+		specificRev = string(vcsRev[0])
+	}
 	oldDir, err := os.Getwd()
 	if err != nil {
 		return nil, "", err
@@ -62,22 +73,33 @@ func BzrRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
 	var output []byte
 
 	rev := &Revision{}
-	if scope == nil || ( scope != nil && scope[0] == CoreRev ) {
+	var revs []Revisioner
+	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
-		output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+		if specificRev != "" {
+			output, err = exec.Command("bzr", "revno", "-r", specificRev).CombinedOutput()
+		} else {
+			output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		revs = append(revs, rev)
 	} else {
 		//FIXME: erik: get additional data about the version if possible (fix this)
-		output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+		if specificRev != "" {
+			output, err = exec.Command("bzr", "revno", "-r", specificRev).CombinedOutput()
+		} else {
+			output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		revs = append(revs, rev)
 	}
-	return rev, string(output), err
+	return revs, string(output), err
 }
 
 // BzrExists verifies the wkspc or remote location is of the Bzr repo type

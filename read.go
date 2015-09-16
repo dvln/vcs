@@ -19,7 +19,7 @@ type Reader interface {
 
 	// RevRead is the key RevReader intfc func (eg: git clone), cannot use intfc
     // (see URL above), this is like a "git log -1 --format=.." type of op
-	RevRead(...ReadScope) (*Revision, string, error)
+	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
 
 	// RevSet is the key RevSetter intfc func (eg: git clone), cannot use intfc
     // (see URL above), this is like a 'git checkout <rev>' type of op

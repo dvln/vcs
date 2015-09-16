@@ -61,11 +61,22 @@ func HgRevSet(r RevSetter, rev Rev) (string, error) {
 	return runFromWkspcDir(r.WkspcPath(), "hg", "update", string(rev))
 }
 
-// HgRevRead retrieves the current version.
-func HgRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
+// HgRevRead retrieves the given or current wkspc rev.  A Revision struct
+// pointer is returned (how filled out depends upon if the read is just the
+// basic core/raw VCS revision or full data for the given VCS which will
+// include tags, branches, timestamp info, author/committer, date, comment).
+// Note: this reads one version but that could be expanded to take <N>
+// revisions or a range, eg HgRevRead(reader, <scope>, rev1, "..", rev2),
+// without changing this methods params or return signature (but code
+// changes  would be needed)
+func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
 	oldDir, err := os.Getwd()
 	if err != nil {
 		return nil, "", err
+	}
+	specificRev := ""
+	if vcsRev != nil && vcsRev[0] != "" {
+		specificRev = string(vcsRev[0])
 	}
 	err = os.Chdir(r.WkspcPath())
 	if err != nil {
@@ -75,15 +86,21 @@ func HgRevRead(r RevReader, scope ...ReadScope) (*Revision, string, error) {
 	var output []byte
 
 	rev := &Revision{}
-	if scope == nil || ( scope != nil && scope[0] == CoreRev ) {
+	var revs []Revisioner
+	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
-		output, err = exec.Command("hg", "identify").CombinedOutput()
+		if specificRev != "" {
+			output, err = exec.Command("hg", "identify", "-r", specificRev).CombinedOutput()
+		} else {
+			output, err = exec.Command("hg", "identify").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		parts := strings.SplitN(string(output), " ", 2)
 		sha := strings.TrimSpace(parts[0])
 		rev.SetCore(Rev(sha))
+		revs = append(revs, rev)
 	} else {
 		//FIXME: erik: implement more extensive hg data grab
 		//       if the client has asked for extra data (vs speed)
@@ -114,15 +131,20 @@ ea489d94e1dc tip @
 ea489d94e1dc default tip
 147 [brady-air]/Users/brady/vcs/mercurial-repo:
 */
-		output, err = exec.Command("hg", "identify").CombinedOutput()
+		if specificRev != "" {
+			output, err = exec.Command("hg", "identify", "-r", specificRev).CombinedOutput()
+		} else {
+			output, err = exec.Command("hg", "identify").CombinedOutput()
+		}
 		if err != nil {
 			return nil, string(output), err
 		}
 		parts := strings.SplitN(string(output), " ", 2)
 		sha := strings.TrimSpace(parts[0])
 		rev.SetCore(Rev(sha))
+		revs = append(revs, rev)
 	}
-	return rev, string(output), err
+	return revs, string(output), err
 }
 
 // HgExists verifies the wkspc or remote location is a Hg repo.

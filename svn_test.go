@@ -102,7 +102,7 @@ func TestSvn(t *testing.T) {
 
 	// Use RevRead to verify we are on the right version.
 	v, _, err := svnReader.RevRead(CoreRev)
-	if string(v.Core()) != "2" {
+	if string(v[0].Core()) != "2" {
 		t.Error("Error checking checked SVN out version")
 	}
 	if err != nil {
@@ -117,7 +117,7 @@ func TestSvn(t *testing.T) {
 
 	// Make sure we are on a newer version because of the update.
 	v, _, err = svnReader.RevRead(CoreRev)
-	if string(v.Core()) == "2" {
+	if string(v[0].Core()) == "2" {
 		t.Error("Error with version. Still on old version. Update failed")
 	}
 	if err != nil {

@@ -43,8 +43,8 @@ func (r *HgReader) RevSet(rev Rev) (string, error) {
 }
 
 // RevRead support for hg reader
-func (r *HgReader) RevRead(scope ...ReadScope) (*Revision, string, error) {
-	return HgRevRead(r, scope...)
+func (r *HgReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+	return HgRevRead(r, scope, vcsRev...)
 }
 
 // Exists support for hg reader
