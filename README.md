@@ -1,32 +1,43 @@
 # VCS Repository Management for Go
 
-Manage repos in varying version control systems with ease through a common
-interface.
+Manage VCS pkgs (repos) in varying version control systems with ease through
+common interfaces.
 
 ## Quick Usage
 
 Quick usage:
 
-	remote := "https://github.com/Masterminds/vcs"
-    local, _ := ioutil.TempDir("", "go-vcs")
-    repo, err := NewRepo(remote, local)
+	remote := "https://github.com/dvln/vcs"
+    local, _ := ioutil.TempDir("", "dlvn-vcs")
+    vcsReader, err := NewReader(remote, local)
 
-In this case `NewRepo` will detect the VCS is Git and return a `GitRepo`. All of
-the repos implement the `Repo` interface with a common set of features between
-them.
+In this case `NewReader` will detect the VCS is Git and return a `GitReader` to
+read the VCS package/repo. All of VCS's implement the Reader interface with a
+common set of features between them.  Beyond that there are more specific interfaces
+such as the Getter and Updater interfaces (subset of the overall Reader interface,
+only providing those interfaces needed to complete the get/clone or update/merge
+classes of functionality.
 
 ## Supported VCS
 
 Git, SVN, Bazaar (Bzr), and Mercurial (Hg) are currently supported. They each
-have their own type (e.g., `GitRepo`) that follow a simple naming pattern. Each
-type implements the `Repo` interface and has a constructor (e.g., `NewGitRepo`).
-The constructors have the same signature as `NewRepo`.
+have their own type (e.g., `GitReader`) that follow a simple naming pattern. Each
+type implements the `Reader` interface and has a constructor (e.g., `NewGitReader`).
+The constructors have the same signature as `NewReader`.
 
 ## Motivation
 
 The package `golang.org/x/tools/go/vcs` provides some valuable functionality
 for working with packages in repositories in varying source control management
-systems. That package, while useful and well tested, is designed with a specific
-purpose in mind. This version of the package is from github.com/Masterminds/vcs
-and implements a Go interface based approach to VCS "repo" abstraction which is
-something I was planning on trying but now don't need to (thanks much folks!).
+systems. Beyond that other packages such as the 'nut' VCS tool vcs package and
+the github.com/Masterminds/vcs ('glide' tool) packages all provided further
+insights and capabilities.  This is a fork of the Masterminds vcs pkg (thanks
+much to all folks above and especially the Masterminds folks) but it is
+heavily changed and moves in somewhat of a different direction at this point.
+
+## Status
+
+This is very early pre-release work that is not in use or ready for regular
+use (currently: v0.1.0).  Feel free to fork and give suggestions of course
+but know it will be undergoing dramatic change throughout 2015 (at least).
+
