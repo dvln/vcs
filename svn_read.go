@@ -16,9 +16,7 @@ func NewSvnReader(remote, wkspc string) (*SvnReader, error) {
 		return nil, ErrWrongVCS
 	}
 	r := &SvnReader{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Svn)
+    r.setDescription(remote, "", wkspc, defaultSvnSchemes, Svn)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = SvnCheckRemote(r, remote)
 		if err != nil {
@@ -50,7 +48,7 @@ func (r *SvnReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, strin
 }
 
 // Exists support for svn reader
-func (r *SvnReader) Exists(l Location) (bool, error) {
+func (r *SvnReader) Exists(l Location) (string, error) {
 	return SvnExists(r, l)
 }
 

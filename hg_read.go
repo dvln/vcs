@@ -14,9 +14,7 @@ func NewHgReader(remote, wkspc string) (*HgReader, error) {
 		return nil, ErrWrongVCS
 	}
 	r := &HgReader{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Hg)
+    r.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = HgCheckRemote(r, remote)
 		if err != nil {
@@ -24,7 +22,7 @@ func NewHgReader(remote, wkspc string) (*HgReader, error) {
 		}
 		r.setRemote(remote)
 	}
-	return r, nil
+	return r, nil	// note: above 'err' not used on purpose here..
 }
 
 // Update support for hg reader
@@ -48,7 +46,7 @@ func (r *HgReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, string
 }
 
 // Exists support for hg reader
-func (r *HgReader) Exists(l Location) (bool, error) {
+func (r *HgReader) Exists(l Location) (string, error) {
 	return HgExists(r, l)
 }
 

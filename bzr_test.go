@@ -49,11 +49,11 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Verify Bzr repo is a Bzr repo
-	exists, err := bzrReader.Exists(Wkspc)
+	path, err := bzrReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
-	if exists == false {
+	if path == "" {
 		t.Error("Problem checking out repo via Bzr Exists is not working")
 	}
 
@@ -73,11 +73,11 @@ func TestBzr(t *testing.T) {
 		t.Error(nrerr)
 	}
 	// Verify the thing exists in the workspace
-	exists, err = nbzrReader.Exists(Wkspc)
+	path, err = nbzrReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
-	if exists == false {
+	if path == "" {
 		t.Error("Don't see the new bzr repo in the workspace")
 	}
 
@@ -126,11 +126,11 @@ func TestBzrExists(t *testing.T) {
 	}()
 
 	bzrReader, _ := NewBzrReader("", tempDir)
-	exists, err := bzrReader.Exists(Wkspc)
+	path, err := bzrReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
-	if exists == true {
+	if path != "" {
 		t.Error("Bzr Exists does detects bzr repo where one is not")
 	}
 
@@ -140,4 +140,63 @@ func TestBzrExists(t *testing.T) {
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
+
+	// Try remote Bzr existence checks via a Getter
+	url1 := "launchpad.net/govcstestbzrrepo"
+	bzrGetter, err := NewBzrGetter(url1, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
+	}
+	path, err = bzrGetter.Exists(Remote)
+	if err != nil {
+		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
+	}
+	if path != "https://launchpad.net/govcstestbzrrepo" {
+		t.Fatalf("Exists failed to return remote path with correct scheme (URL: %s), found: %s", url1, path)
+	}
+
+    if testing.Short() {
+        t.Skip("skipping remaining existence checks in short mode.")
+		return
+    }
+
+	url2 := "https://launchpad.net/govcstestbzrrepo"
+	bzrGetter, err = NewBzrGetter(url2, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
+	}
+	path, err = bzrGetter.Exists(Remote)
+	if err != nil {
+		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url2, err)
+	}
+	if path != url2 {
+		t.Fatalf("Exists failed to return matching URL path (URL: %s), found: %s", url2, path)
+	}
+
+	badurl1 := "launchpad.net/notexistgovcstestbzrrepo"
+	bzrGetter, err = NewBzrGetter(badurl1, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize 1st \"bad\" Bzr getter, init should work, error: %s", err)
+	}
+	path, err = bzrGetter.Exists(Remote)
+	if err == nil {
+		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: %s", badurl1, err)
+	}
+	if path != "" {
+		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl1, err)
+	}
+
+	badurl2 := "https://launchpad.net/notexistgovcstestbzrrepo"
+	bzrGetter, err = NewBzrGetter(badurl2, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize 2nd \"bad\" Bzr getter, init should work, error: %s", err)
+	}
+	path, err = bzrGetter.Exists(Remote)
+	if err == nil {
+		t.Fatalf("Failed to detect an error scanning for 2nd bad VCS location (loc: %s), error: %s", badurl2, err)
+	}
+	if path != "" {
+		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl2, err)
+	}
 }
+

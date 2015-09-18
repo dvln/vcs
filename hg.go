@@ -7,9 +7,18 @@ import (
 	"regexp"
 
     "github.com/dvln/util/dir"
+	"github.com/dvln/util/url"
 )
 
 var hgDetectURL = regexp.MustCompile("default = (?P<foo>.+)\n")
+
+var defaultHgSchemes []string
+
+// set up default hg remote URL schemes and a search order (for any remote
+// that doesn't have a full URL), eg: https, http, ssh
+func init() {
+	SetDefaultHgSchemes(nil)
+}
 
 // HgGet is used to perform an initial clone of a repository.
 func HgGet(g Getter, rev ...Rev) (string, error) {
@@ -147,21 +156,47 @@ ea489d94e1dc default tip
 	return revs, string(output), err
 }
 
-// HgExists verifies the wkspc or remote location is a Hg repo.
-func HgExists(e Existence, l Location) (bool, error) {
+// HgExists verifies the wkspc or remote location is a Hg repo,
+// returns where it was found ("" if not found) and any error
+func HgExists(e Existence, l Location) (string, error) {
 	var err error
+	path := ""
 	if l == Wkspc {
-		if there, err := dir.Exists(e.WkspcPath() + "/.hg"); there && err == nil {
-			return true, nil
+		if exists, err := dir.Exists(e.WkspcPath() + "/.hg"); exists && err == nil {
+			return e.WkspcPath(), nil
 		}
 		//FIXME: erik: if err != nil should use something like:
 		//       out.WrapErrf(ErrNoExists, #, "%v hg location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
-	} else {
-		//FIXME: erik: need to actually check if remote repo exists ;)
-		// should use this "ErrNoExist" from repo.go if doesn't exist
-		return true, nil
+	} else { // checking remote "URL" as well as possible for current VCS..
+		remote := e.Remote()
+		scheme := url.GetScheme(remote)
+		// if we have a scheme then just see if the repo exists...
+		if scheme != "" {
+			_, err = exec.Command("hg", "identify", remote).CombinedOutput()
+			if err == nil {
+				path = remote
+			}
+		} else {
+			vcsSchemes := e.Schemes()
+			for _, scheme = range vcsSchemes {
+				_, err = exec.Command("hg", "identify", scheme + "://" + remote).CombinedOutput()
+				if err == nil {
+					path = scheme + "://" + remote
+					break
+				}
+			}
+		}
+		//FIXME: erik: better erroring on failure to detect would be good here as well, such
+		//             as a combined error on the various remote URL's checked and the error
+		//             returned from each one (along with out.WrapErr's and such for tracing),
+		//             also need to dump commands in exec.Command at Trace level and output
+		//             here of those commands at Trace level also (along with other routines)
+
+		if err == nil {
+			return path, nil
+		}
 	}
-	return false, err
+	return path, err
 }
 
 // HgCheckRemote  attempts to take a remote string (URL) and validate
@@ -173,7 +208,7 @@ func HgCheckRemote (e Existence, remote string) (string, string, error) {
 	// Make sure the wkspc Hg repo is configured the same as the remote when
 	// A remote value was passed in.
 	var outStr string
-	if exists, err := e.Exists(Wkspc); err == nil && exists {
+	if loc, err := e.Exists(Wkspc); err == nil && loc != "" {
 		// An Hg repo was found so test that the URL there matches
 		// the repo passed in here.
 		oldDir, err := os.Getwd()
@@ -204,5 +239,16 @@ func HgCheckRemote (e Existence, remote string) (string, string, error) {
 		}
 	}
 	return remote, outStr, nil
+}
+
+// SetDefaultHgSchemes allows one to override the default ordering
+// and set of hg remote URL schemes to try for any remote that has
+// no scheme provided, defaults to Go core list for now.
+func SetDefaultHgSchemes(schemes []string) {
+	if schemes == nil {
+		defaultHgSchemes = []string{"https", "http", "ssh"}
+	} else {
+		defaultHgSchemes = schemes
+	}
 }
 

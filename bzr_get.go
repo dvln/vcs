@@ -14,9 +14,7 @@ func NewBzrGetter(remote, wkspc string) (Getter, error) {
 		return nil, ErrWrongVCS
 	}
 	g := &BzrGetter{}
-	g.setRemote(remote)
-	g.setWkspcPath(wkspc)
-	g.setVcs(Bzr)
+    g.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
 	if err == nil { // Have a local wkspc FS repo, try to improve the remote..
 		remote, _, err = BzrCheckRemote(g, remote)
 		if err != nil {
@@ -38,7 +36,7 @@ func (g *BzrGetter) RevSet(rev Rev) (string, error) {
 }
 
 // Exists support for bzr getter
-func (g *BzrGetter) Exists(l Location) (bool, error) {
+func (g *BzrGetter) Exists(l Location) (string, error) {
 	return BzrExists(g, l)
 }
 

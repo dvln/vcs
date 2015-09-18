@@ -16,9 +16,7 @@ func NewSvnGetter(remote, wkspc string) (Getter, error) {
 		return nil, ErrWrongVCS
 	}
 	g := &SvnGetter{}
-	g.setRemote(remote)
-	g.setWkspcPath(wkspc)
-	g.setVcs(Svn)
+    g.setDescription(remote, "", wkspc, defaultSvnSchemes, Svn)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = SvnCheckRemote(g, remote)
 		if err != nil {
@@ -40,7 +38,7 @@ func (g *SvnGetter) RevSet(rev Rev) (string, error) {
 }
 
 // Exists support for svn getter
-func (g *SvnGetter) Exists(l Location) (bool, error) {
+func (g *SvnGetter) Exists(l Location) (string, error) {
 	return SvnExists(g, l)
 }
 

@@ -16,9 +16,7 @@ func NewSvnUpdater(remote, wkspc string) (Updater, error) {
 		return nil, ErrWrongVCS
 	}
 	u := &SvnUpdater{}
-	u.setRemote(remote)
-	u.setWkspcPath(wkspc)
-	u.setVcs(Svn)
+    u.setDescription(remote, "", wkspc, defaultSvnSchemes, Svn)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = SvnCheckRemote(u, remote)
 		if err != nil {
@@ -35,7 +33,7 @@ func (u *SvnUpdater) Update(rev ...Rev) (string, error) {
 }
 
 // Exists support for svn updater
-func (u *SvnUpdater) Exists(l Location) (bool, error) {
+func (u *SvnUpdater) Exists(l Location) (string, error) {
 	return SvnExists(u, l)
 }
 

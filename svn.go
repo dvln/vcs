@@ -8,9 +8,15 @@ import (
 	"regexp"
 
     "github.com/dvln/util/dir"
+	"github.com/dvln/util/url"
 )
 
 var svnDetectURL = regexp.MustCompile("URL: (?P<foo>.+)\n")
+var defaultSvnSchemes []string
+
+func init() {
+	SetDefaultSvnSchemes(nil)
+}
 
 // SvnGet is used to perform an initial checkout of a repository.
 // Note, because SVN isn't distributed this is a checkout without
@@ -107,25 +113,51 @@ func SvnRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 	return revs, string(output), err
 }
 
-// SvnExists verifies the wkspc or remote location is of the SVN type
-func SvnExists(e Existence, l Location) (bool, error) {
+// SvnExists verifies the wkspc or remote location is of the SVN type,
+// returns where it was found ("" if not found) and any error
+func SvnExists(e Existence, l Location) (string, error) {
 	var err error
+	path := ""
 	if l == Wkspc {
-		if there, err := dir.Exists(e.WkspcPath() + "/.svn"); there && err == nil {
-			return true, nil
+		if exists, err := dir.Exists(e.WkspcPath() + "/.svn"); exists && err == nil {
+			return e.WkspcPath(), nil
 		}
 		//FIXME: erik: if err != nil should use something like:
 		//       out.WrapErrf(ErrNoExists, #, "%v SVN location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
-	} else {
-		//FIXME: erik: need to actually check if remote repo exists ;)
-		// should use this "ErrNoExist" from repo.go if doesn't exist
-		return true, nil
+	} else { // checking remote "URL" as well as possible for current VCS..
+		remote := e.Remote()
+		scheme := url.GetScheme(remote)
+		// if we have a scheme then just see if the repo exists...
+		if scheme != "" {
+			_, err = exec.Command("svn", "info", remote).CombinedOutput()
+			if err == nil {
+				path = remote
+			}
+		} else {
+			vcsSchemes := e.Schemes()
+			for _, scheme = range vcsSchemes {
+				_, err = exec.Command("svn", "info", scheme + "://" + remote).CombinedOutput()
+				if err == nil {
+					path = scheme + "://" + remote
+					break
+				}
+			}
+		}
+		//FIXME: erik: better erroring on failure to detect would be good here as well, such
+		//             as a combined error on the various remote URL's checked and the error
+		//             returned from each one (along with out.WrapErr's and such for tracing),
+		//             also need to dump commands in exec.Command at Trace level and output
+		//             here of those commands at Trace level also (along with other routines)
+
+		if err == nil {
+			return path, nil
+		}
 	}
-	return false, err
+	return path, err
 }
 
-// SvnCheckRemote  attempts to take a remote string (URL) and validate
-// it against any local checkout and try and set it when it is empty.  Returns:
+// SvnCheckRemote attempts to take a remote string (URL) and validate
+// it against any local wkspc checkout, tries to set it when empty.  Returns:
 // - string: this is the new remote (current remote returned if no new remote)
 // - string: output of the Bzr command to try and determine the remote
 // - error: non-nil if an error occurred
@@ -133,7 +165,7 @@ func SvnCheckRemote (e Existence, remote string) (string, string, error) {
 	// Make sure the wkspc Svn repo is configured the same as the remote when
 	// A remote value was passed in.
 	var outStr string
-	if exists, err := e.Exists(Wkspc); err == nil && exists {
+	if loc, err := e.Exists(Wkspc); err == nil && loc != "" {
 		// An SVN repo was found so test that the URL there matches
 		// the repo passed in here.
 		output, err := exec.Command("svn", "info", e.WkspcPath()).CombinedOutput()
@@ -156,3 +188,13 @@ func SvnCheckRemote (e Existence, remote string) (string, string, error) {
 	return remote, outStr, nil
 }
 
+// SetDefaultSvnSchemes allows one to override the default ordering
+// and set of svn remote URL schemes to try for any remote that has
+// no scheme provided, defaults to Go core list for now.
+func SetDefaultSvnSchemes(schemes []string) {
+	if schemes == nil {
+		defaultSvnSchemes = []string{"https", "http", "svn", "svn+ssh"}
+	} else {
+		defaultSvnSchemes = schemes
+	}
+}

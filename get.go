@@ -29,7 +29,7 @@ type Getter interface {
 	RevSet(Rev) (string, error)
 
 	// Exists will determine if the repo exists (remotely or in local wkspc)
-	Exists(Location) (bool, error)
+	Exists(Location) (string, error)
 
 	// Get is used to perform an initial clone/checkout of a repository.
 	Get(...Rev) (string, error)

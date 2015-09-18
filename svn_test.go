@@ -43,8 +43,6 @@ func TestSvn(t *testing.T) {
 		t.Error("Local disk location not set properly")
 	}
 
-	//Logger = log.New(os.Stdout, "", log.LstdFlags)
-
 	// Do an initial checkout.
 	_, err = svnReader.Get()
 	if err != nil {
@@ -52,11 +50,11 @@ func TestSvn(t *testing.T) {
 	}
 
 	// Verify SVN repo is a SVN repo
-	exists, err := svnReader.Exists(Wkspc)
+	path, err := svnReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on svn repo: %s", err)
 	}
-	if exists == false {
+	if path == "" {
 		t.Error("Problem checking if SVN repo Exists in the workspace")
 	}
 
@@ -66,7 +64,7 @@ func TestSvn(t *testing.T) {
 		t.Error("ErrWrongRemote was not triggered for SVN")
 	}
 
-	// Test internal lookup mechanism used outside of Hg specific functionality.
+	// Test internal lookup mechanism used outside of Svn specific functionality.
 	ltype, err := DetectVcsFromFS(tempDir + "/VCSTestRepo")
 	if err != nil {
 		t.Error("detectVcsFromFS unable to Svn repo")
@@ -86,11 +84,11 @@ func TestSvn(t *testing.T) {
 	// 	t.Error(nrerr)
 	// }
 	// // Verify the right oject is returned. It will check the local repo type.
-	// exists, err = nsvnReader.Exists(Wkspc)
+	// path, err = nsvnReader.Exists(Wkspc)
 	// if err != nil {
 	// 	t.Errorf("Existence check failed on svn repo: %s", err)
 	// }
-	// if exists == false {
+	// if path == "" {
 	// 	t.Error("Wrong version returned from NewReader")
 	// }
 
@@ -140,11 +138,11 @@ func TestSvnExists(t *testing.T) {
 	}()
 
 	svnReader, _ := NewSvnReader("", tempDir)
-	exists, err := svnReader.Exists(Wkspc)
+	path, err := svnReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on svn repo: %s", err)
 	}
-	if exists == true {
+	if path != "" {
 		t.Error("SVN repo exists check incorrectlyi indicating existence")
 	}
 
@@ -153,5 +151,63 @@ func TestSvnExists(t *testing.T) {
 	_, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
 	if nrerr != nil {
 		t.Error(nrerr)
+	}
+
+	// Try remote Svn existence checks via a Getter
+	url1 := "github.com/Masterminds/VCSTestRepo/trunk"
+	svnGetter, err := NewSvnGetter(url1, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
+	}
+	path, err = svnGetter.Exists(Remote)
+	if err != nil {
+		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
+	}
+	if path != "https://github.com/Masterminds/VCSTestRepo/trunk" {
+		t.Fatalf("Exists failed to return remote path with correct scheme (URL: %s), found: %s", url1, path)
+	}
+
+    if testing.Short() {
+        t.Skip("skipping remaining existence checks in short mode.")
+		return
+    }
+
+	url2 := "https://github.com/Masterminds/VCSTestRepo/trunk"
+	svnGetter, err = NewSvnGetter(url2, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
+	}
+	path, err = svnGetter.Exists(Remote)
+	if err != nil {
+		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url2, err)
+	}
+	if path != url2 {
+		t.Fatalf("Exists failed to return matching URL path (URL: %s), found: %s", url2, path)
+	}
+
+	badurl1 := "github.com/Masterminds/notexistVCSTestRepo/trunk"
+	svnGetter, err = NewSvnGetter(badurl1, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize 1st \"bad\" Svn getter, init should work, error: %s", err)
+	}
+	path, err = svnGetter.Exists(Remote)
+	if err == nil {
+		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: %s", badurl1, err)
+	}
+	if path != "" {
+		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl1, err)
+	}
+
+	badurl2 := "https://github.com/Masterminds/notexistVCSTestRepo/trunk"
+	svnGetter, err = NewSvnGetter(badurl2, tempDir)
+	if err != nil {
+		t.Fatalf("Failed to initialize 2nd \"bad\" Svn getter, init should work, error: %s", err)
+	}
+	path, err = svnGetter.Exists(Remote)
+	if err == nil {
+		t.Fatalf("Failed to detect an error scanning for 2nd bad VCS location (loc: %s), error: %s", badurl2, err)
+	}
+	if path != "" {
+		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl2, err)
 	}
 }

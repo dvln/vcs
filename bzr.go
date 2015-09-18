@@ -7,9 +7,15 @@ import (
 	"regexp"
 
     "github.com/dvln/util/dir"
+	"github.com/dvln/util/url"
 )
 
 var bzrDetectURL = regexp.MustCompile("parent branch: (?P<foo>.+)\n")
+var defaultBzrSchemes []string
+
+func init() {
+	SetDefaultBzrSchemes(nil)
+}
 
 // BzrGet is used to perform an initial clone of a repository.
 func BzrGet(g Getter, rev ...Rev) (string, error) {
@@ -102,21 +108,47 @@ func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 	return revs, string(output), err
 }
 
-// BzrExists verifies the wkspc or remote location is of the Bzr repo type
-func BzrExists(e Existence, l Location) (bool, error) {
+// BzrExists verifies the wkspc or remote location is of the Bzr repo type,
+// returns where it was found ("" if not found) and any error
+func BzrExists(e Existence, l Location) (string, error) {
 	var err error
+	path := ""
 	if l == Wkspc {
-		if there, err := dir.Exists(e.WkspcPath() + "/.bzr"); there && err == nil {
-			return true, nil
+		if exists, err := dir.Exists(e.WkspcPath() + "/.bzr"); exists && err == nil {
+			return e.WkspcPath(), nil
 		}
 		//FIXME: erik: if err != nil should use something like:
 		//       out.WrapErrf(ErrNoExists, #, "%v bzr location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
-	} else {
-		//FIXME: erik: need to actually check if remote repo exists ;)
-		// should use this "ErrNoExist" from repo.go if doesn't exist
-		return true, nil
+	} else { // checking remote "URL" as well as possible for current VCS..
+		remote := e.Remote()
+		scheme := url.GetScheme(remote)
+		// if we have a scheme then just see if the repo exists...
+		if scheme != "" {
+			_, err = exec.Command("bzr", "info", remote).CombinedOutput()
+			if err == nil {
+				path = remote
+			}
+		} else {
+			vcsSchemes := e.Schemes()
+			for _, scheme = range vcsSchemes {
+				_, err = exec.Command("bzr", "info", scheme + "://" + remote).CombinedOutput()
+				if err == nil {
+					path = scheme + "://" + remote
+					break
+				}
+			}
+		}
+		//FIXME: erik: better erroring on failure to detect would be good here as well, such
+		//             as a combined error on the various remote URL's checked and the error
+		//             returned from each one (along with out.WrapErr's and such for tracing),
+		//             also need to dump commands in exec.Command at Trace level and output
+		//             here of those commands at Trace level also (along with other routines)
+
+		if err == nil {
+			return path, nil
+		}
 	}
-	return false, err
+	return path, err
 }
 
 // BzrCheckRemote attempts to take a remote string (URL) and validate
@@ -134,7 +166,7 @@ func BzrCheckRemote(e Existence, remote string) (string, string, error) {
 	// the change from https to http and the path chance.
 	// Here we set the remote to be the local one if none is passed in.
 	var outStr string
-	if exists, err := e.Exists(Wkspc); err == nil && exists && remote == "" {
+	if loc, err := e.Exists(Wkspc); err == nil && loc != "" && remote == "" {
 		oldDir, err := os.Getwd()
 		if err != nil {
 			return remote, "", err
@@ -160,3 +192,13 @@ func BzrCheckRemote(e Existence, remote string) (string, string, error) {
 	return remote, outStr, nil
 }
 
+// SetDefaultBzrSchemes allows one to override the default ordering
+// and set of bzr remote URL schemes to try for any remote that has
+// no scheme provided, defaults to Go core list for now.
+func SetDefaultBzrSchemes(schemes []string) {
+	if schemes == nil {
+		defaultBzrSchemes = []string{"https", "http", "bzr", "bzr+ssh"}
+	} else {
+		defaultBzrSchemes = schemes
+	}
+}

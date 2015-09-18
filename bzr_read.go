@@ -14,9 +14,7 @@ func NewBzrReader(remote, wkspc string) (*BzrReader, error) {
 		return nil, ErrWrongVCS
 	}
 	r := &BzrReader{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Bzr)
+    r.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
 	if err == nil { // Have a local wkspc FS repo, try to improve the remote..
 		remote, _, err = BzrCheckRemote(r, remote)
 		if err != nil {
@@ -48,7 +46,7 @@ func (r *BzrReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, strin
 }
 
 // Exists support for bzr reader
-func (r *BzrReader) Exists(l Location) (bool, error) {
+func (r *BzrReader) Exists(l Location) (string, error) {
 	return BzrExists(r, l)
 }
 

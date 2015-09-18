@@ -28,12 +28,7 @@ func NewGitGetter(remote, wkspc string) (Getter, error) {
 		return nil, ErrWrongVCS
 	}
 	g := &GitGetter{}
-	g.setRemote(remote)
-	g.setWkspcPath(wkspc)
-	g.setVcs(Git)
-	g.setRemoteRepoName("origin")
-	//FIXME: erik: weak, origin is hard coded here and in GitCheckRemote()
-
+    g.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = GitCheckRemote(g, remote)
 		if err != nil {
@@ -41,7 +36,7 @@ func NewGitGetter(remote, wkspc string) (Getter, error) {
 		}
 		g.setRemote(remote)
 	}
-	return g, nil
+	return g, nil	// note: above 'err' not used on purpose here..
 }
 
 // Get support for git getter
@@ -55,7 +50,7 @@ func (g *GitGetter) RevSet(rev Rev) (string, error) {
 }
 
 // Exists support for git getter
-func (g *GitGetter) Exists(l Location) (bool, error) {
+func (g *GitGetter) Exists(l Location) (string, error) {
 	return GitExists(g, l)
 }
 

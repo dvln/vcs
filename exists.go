@@ -21,6 +21,6 @@ type Existence interface {
     Describer
 
 	// Exists will determine if the repo exists (remotely or in local wkspc)
-	Exists(Location) (bool, error)
+	Exists(Location) (string, error)
 }
 

@@ -1,6 +1,6 @@
 // This package is a derivative of the github.com/Masterminds/vcs repo, thanks
 // for the base ideas folks!  Copyright at time of fork was MIT.
-// 
+//
 // Further dvln related restructuring/changes licensed via:
 // Copyright © 2015 Erik Brady <brady@dvln.org>
 //
@@ -135,4 +135,3 @@ func detectVCSType(remote, wkspc string, vcsType ...Type) (Type, string, error) 
 	}
 	return vtype, remote, err
 }
-

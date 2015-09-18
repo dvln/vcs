@@ -26,7 +26,7 @@ type Reader interface {
 	RevSet(Rev) (string, error)
 
 	// Exists is the key Existence intfc func, cannot use intfc (see URL above),
-	Exists(Location) (bool, error)
+	Exists(Location) (string, error)
 }
 
 // NewReader returns a VCS Reader based on trying to detect the VCS sys from the

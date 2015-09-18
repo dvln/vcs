@@ -25,7 +25,7 @@ type Updater interface {
     Describer
 
 	// Exists will determine if the repo exists (remotely or in local wkspc)
-	Exists(Location) (bool, error)
+	Exists(Location) (string, error)
 
 	// Update is used to merge with new central repo changes to local
     // workspace, optionally at a given revision (specific single revision)

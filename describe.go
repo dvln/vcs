@@ -32,50 +32,75 @@ type Describer interface {
 	// eg: "origin" is the default for the repo we cloned from in git, in
 	//     other VCS's this can come back unused with a ""
 	RemoteRepoName() string
+
+	// Schemes gets the remote URL schemes available for a given VCS.  This
+	// will be the default order they will be scanned for (eg: for git look
+	// for the repo under "git://<remote>", "https://..", "http://.." and,
+	// finally, "git+ssh://..").  Only used if no scheme provided.
+	Schemes() []string
 }
 
 // Description is a structure that satisfies the VCS Describer implementation, used
 // by the <VCS>Reader and other <VCS> implementations (eg: GitPulller)
 type Description struct {
-	remote, wkspc, remoteRepoName string
+	wkspc, remote, remoteRepoName string
+	schemes []string
 	vcsType Type
 }
 
 // Remote retrieves the remote location for a repo.
-func (b *Description) Remote() string {
-	return b.remote
+func (d *Description) Remote() string {
+	return d.remote
 }
 
 // RemoteRepoName is only needed for some VCS's, but if the remote repo
 // has a "name" to identify it (eg: "origin" in git) then one can get
 // the current remote repo name here (to set: see SetRemoteRepoName())
-func (b *Description) RemoteRepoName() string {
-	return b.remoteRepoName
+func (d *Description) RemoteRepoName() string {
+	return d.remoteRepoName
 }
 
 // WkspcPath retrieves the wkspc file system location for a repo.
-func (b *Description) WkspcPath() string {
-	return b.wkspc
+func (d *Description) WkspcPath() string {
+	return d.wkspc
+}
+
+// Schemes retrieves the remote location for a repo.
+func (d *Description) Schemes() []string {
+	return d.schemes
 }
 
 // Vcs retrieves the VCS type if we have one
-func (b *Description) Vcs() Type {
-	return b.vcsType
+func (d *Description) Vcs() Type {
+	return d.vcsType
 }
 
-func (b *Description) setRemote(remote string) {
-	b.remote = remote
+func (d *Description) setRemote(remote string) {
+	d.remote = remote
 }
 
-func (b *Description) setRemoteRepoName(remRepoName string) {
-	b.remoteRepoName = remRepoName
+func (d *Description) setRemoteRepoName(remRepoName string) {
+	d.remoteRepoName = remRepoName
 }
 
-func (b *Description) setWkspcPath(wkspc string) {
-	b.wkspc = wkspc
+func (d *Description) setWkspcPath(wkspc string) {
+	d.wkspc = wkspc
 }
 
-func (b *Description) setVcs(vcsType Type) {
-	b.vcsType = vcsType
+func (d *Description) setSchemes(schemes []string) {
+	d.schemes = schemes
 }
+
+func (d *Description) setVcs(vcsType Type) {
+	d.vcsType = vcsType
+}
+
+func (d *Description) setDescription(remote, remName, wkspc string, schemes []string, vcsType Type) {
+	d.setRemote(remote)
+	d.setRemoteRepoName(remName)
+	d.setWkspcPath(wkspc)
+	d.setSchemes(schemes)
+	d.setVcs(vcsType)
+}
+
 

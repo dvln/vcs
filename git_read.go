@@ -28,20 +28,15 @@ func NewGitReader(remote, wkspc string) (*GitReader, error) {
 		return nil, ErrWrongVCS
 	}
 	r := &GitReader{}
-	r.setRemote(remote)
-	r.setWkspcPath(wkspc)
-	r.setVcs(Git)
-	r.setRemoteRepoName("origin")
-	//FIXME: erik: weak, origin is hard coded here and in GitCheckRemote()
-
-	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
-		remote, _, err = GitCheckRemote(r, remote)
+    r.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
+	if err == nil {
+		newRemote, _, err := GitCheckRemote(r, remote)
 		if err != nil {
 			return nil, err
 		}
-		r.setRemote(remote)
+		r.setRemote(newRemote)
 	}
-	return r, nil
+	return r, nil	// note: above 'err' not used on purpose here..
 }
 
 // Update support for git reader
@@ -65,7 +60,7 @@ func (r *GitReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, strin
 }
 
 // Exists support for git reader
-func (r *GitReader) Exists(l Location) (bool, error) {
+func (r *GitReader) Exists(l Location) (string, error) {
 	return GitExists(r, l)
 }
 
