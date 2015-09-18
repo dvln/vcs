@@ -25,16 +25,6 @@ func NewHgReader(remote, wkspc string) (*HgReader, error) {
 	return r, nil	// note: above 'err' not used on purpose here..
 }
 
-// Update support for hg reader
-func (r *HgReader) Update(rev ...Rev) (string, error) {
-	return HgUpdate(r, rev...)
-}
-
-// Get support for hg reader
-func (r *HgReader) Get(rev ...Rev) (string, error) {
-	return HgGet(r, rev...)
-}
-
 // RevSet support for hg reader
 func (r *HgReader) RevSet(rev Rev) (string, error) {
 	return HgRevSet(r, rev)

@@ -39,16 +39,6 @@ func NewGitReader(remote, wkspc string) (*GitReader, error) {
 	return r, nil	// note: above 'err' not used on purpose here..
 }
 
-// Update support for git reader
-func (r *GitReader) Update(rev ...Rev) (string, error) {
-	return GitUpdate(r, rev...)
-}
-
-// Get support for git reader
-func (r *GitReader) Get(rev ...Rev) (string, error) {
-	return GitGet(r, rev...)
-}
-
 // RevSet support for git reader
 func (r *GitReader) RevSet(rev Rev) (string, error) {
 	return GitRevSet(r, rev)

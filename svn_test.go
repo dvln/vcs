@@ -26,31 +26,31 @@ func TestSvn(t *testing.T) {
 		}
 	}()
 
-	svnReader, err := NewSvnReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	svnGetter, err := NewSvnGetter("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
 	if err != nil {
 		t.Errorf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
 
-	if svnReader.Vcs() != Svn {
+	if svnGetter.Vcs() != Svn {
 		t.Error("Svn is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if svnReader.Remote() != "https://github.com/Masterminds/VCSTestRepo/trunk" {
+	if svnGetter.Remote() != "https://github.com/Masterminds/VCSTestRepo/trunk" {
 		t.Error("Remote not set properly")
 	}
-	if svnReader.WkspcPath() != tempDir+"/VCSTestRepo" {
+	if svnGetter.WkspcPath() != tempDir+"/VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
 	// Do an initial checkout.
-	_, err = svnReader.Get()
+	_, err = svnGetter.Get()
 	if err != nil {
 		t.Errorf("Unable to checkout SVN repo. Err was %s", err)
 	}
 
 	// Verify SVN repo is a SVN repo
-	path, err := svnReader.Exists(Wkspc)
+	path, err := svnGetter.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on svn repo: %s", err)
 	}
@@ -59,8 +59,8 @@ func TestSvn(t *testing.T) {
 	}
 
 	// Verify an incorrect remote is caught when NewSvnReader is used on an existing location
-	_, nrerr := NewSvnReader("https://github.com/Masterminds/VCSTestRepo/unknownbranch", tempDir+"/VCSTestRepo")
-	if nrerr != ErrWrongRemote {
+	_, err = NewSvnReader("https://github.com/Masterminds/VCSTestRepo/unknownbranch", tempDir+"/VCSTestRepo")
+	if err != ErrWrongRemote {
 		t.Error("ErrWrongRemote was not triggered for SVN")
 	}
 
@@ -79,12 +79,12 @@ func TestSvn(t *testing.T) {
 	//
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	// nsvnReader, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
-	// if nrerr != nil {
-	// 	t.Error(nrerr)
+	// svnReader, err := NewReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	// if err != nil {
+	// 	t.Error(err)
 	// }
 	// // Verify the right oject is returned. It will check the local repo type.
-	// path, err = nsvnReader.Exists(Wkspc)
+	// path, err = svnReader.Exists(Wkspc)
 	// if err != nil {
 	// 	t.Errorf("Existence check failed on svn repo: %s", err)
 	// }
@@ -92,7 +92,11 @@ func TestSvn(t *testing.T) {
 	// 	t.Error("Wrong version returned from NewReader")
 	// }
 
-	// Update the version to a previous version.
+	// Change the version in the workspace to a previous version.
+	svnReader, err := NewSvnReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	if err != nil {
+		t.Errorf("Unable to instantiate new SVN VCS reader, Err: %s", err)
+	}
 	output, err := svnReader.RevSet("r2")
 	if err != nil {
 		t.Errorf("Unable to update SVN repo version. Err was %s, output:\n%s", err, output)
@@ -108,7 +112,11 @@ func TestSvn(t *testing.T) {
 	}
 
 	// Perform an update which should take up back to the latest version.
-	_, err = svnReader.Update()
+	svnUpdater, err := NewSvnUpdater("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = svnUpdater.Update()
 	if err != nil {
 		t.Error(err)
 	}

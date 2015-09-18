@@ -7,16 +7,6 @@ type Reader interface {
 	// Describer interfaces has methods to determine info about a repo (remote/wkspc URL/path, VCS Type)
     Describer
 
-	// Get is the key Getter interface func (eg: git clone), cannot use a Getter:
-    //   https://groups.google.com/forum/#!topic/golang-nuts/OKgbtTW-5YQ
-	// ie: Describer intfc used in Getter intfc also, causes duplicate func errs
-    // This is like a 'git clone ..'
-	Get(...Rev) (string, error)
-
-	// Update is the key Updater interface func (eg: git clone), cannot use an
-	// Updater (see URL above for details).  This  is like a 'git fetch+merge'.
-	Update(...Rev) (string, error)
-
 	// RevRead is the key RevReader intfc func (eg: git clone), cannot use intfc
     // (see URL above), this is like a "git log -1 --format=.." type of op
 	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)

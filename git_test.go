@@ -25,31 +25,31 @@ func TestGit(t *testing.T) {
 		}
 	}()
 
-	gitReader, err := NewGitReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
+	gitGetter, err := NewGitGetter("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
 	if err != nil {
 		t.Errorf("Unable to instantiate new Git VCS reader, Err: %s", err)
 	}
 
-	if gitReader.Vcs() != Git {
+	if gitGetter.Vcs() != Git {
 		t.Error("Git is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if gitReader.Remote() != "https://github.com/Masterminds/VCSTestRepo" {
+	if gitGetter.Remote() != "https://github.com/Masterminds/VCSTestRepo" {
 		t.Error("Remote not set properly")
 	}
-	if gitReader.WkspcPath() != tempDir+"/VCSTestRepo" {
+	if gitGetter.WkspcPath() != tempDir+"/VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
 	// Do an initial clone.
-	_, err = gitReader.Get()
+	_, err = gitGetter.Get()
 	if err != nil {
 		t.Errorf("Unable to clone Git repo using VCS reader Get(). Err was %s", err)
 	}
 
 	// Verify Git repo exists in the workspace
-	path, err := gitReader.Exists(Wkspc)
+	path, err := gitGetter.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on git repo: %s", err)
 	}
@@ -68,12 +68,12 @@ func TestGit(t *testing.T) {
 
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	ngitReader, nrerr := NewReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
-	if nrerr != nil {
-		t.Error(nrerr)
+	gitReader, err := NewReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
+	if err != nil {
+		t.Error(err)
 	}
 	// See if the new git VCS reader was instantiated in the workspace
-	path, err = ngitReader.Exists(Wkspc)
+	path, err = gitReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on git repo: %s", err)
 	}
@@ -82,7 +82,11 @@ func TestGit(t *testing.T) {
 	}
 
 	// Perform an update operation
-	_, err = gitReader.Update()
+	gitUpdater, err := NewUpdater("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = gitUpdater.Update()
 	if err != nil {
 		t.Error(err)
 	}

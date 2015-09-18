@@ -25,31 +25,31 @@ func TestBzr(t *testing.T) {
 		}
 	}()
 
-	bzrReader, err := NewBzrReader("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
+	bzrGetter, err := NewBzrGetter("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
 	if err != nil {
 		t.Errorf("Unable to instantiate new Bzr VCS reader, Err: %s", err)
 	}
 
-	if bzrReader.Vcs() != Bzr {
+	if bzrGetter.Vcs() != Bzr {
 		t.Error("Bzr is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if bzrReader.Remote() != "https://launchpad.net/govcstestbzrrepo" {
+	if bzrGetter.Remote() != "https://launchpad.net/govcstestbzrrepo" {
 		t.Error("Remote not set properly")
 	}
-	if bzrReader.WkspcPath() != tempDir+"/govcstestbzrrepo" {
+	if bzrGetter.WkspcPath() != tempDir+"/govcstestbzrrepo" {
 		t.Error("Local disk location not set properly")
 	}
 
 	// Do an initial clone.
-	_, err = bzrReader.Get()
+	_, err = bzrGetter.Get()
 	if err != nil {
 		t.Errorf("Unable to clone Bzr repo. Err was %s", err)
 	}
 
 	// Verify Bzr repo is a Bzr repo
-	path, err := bzrReader.Exists(Wkspc)
+	path, err := bzrGetter.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
@@ -68,12 +68,12 @@ func TestBzr(t *testing.T) {
 
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	nbzrReader, nrerr := NewReader("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
-	if nrerr != nil {
-		t.Error(nrerr)
+	bzrReader, err := NewReader("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
+	if err != nil {
+		t.Error(err)
 	}
 	// Verify the thing exists in the workspace
-	path, err = nbzrReader.Exists(Wkspc)
+	path, err = bzrReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
@@ -96,7 +96,11 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Perform an update.
-	_, err = bzrReader.Update()
+	bzrUpdater, err := NewUpdater("https://launchpad.net/govcstestbzrrepo", tempDir+"/govcstestbzrrepo")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = bzrUpdater.Update()
 	if err != nil {
 		t.Error(err)
 	}
@@ -108,7 +112,6 @@ func TestBzr(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 }
 
 func TestBzrExists(t *testing.T) {

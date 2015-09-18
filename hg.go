@@ -67,7 +67,10 @@ func HgUpdate(u Updater, rev ...Rev) (string, error) {
 // that reference the revision, this one decides exactly the one
 // the client wishes to "set" or checkout in the wkspc).
 func HgRevSet(r RevSetter, rev Rev) (string, error) {
-	return runFromWkspcDir(r.WkspcPath(), "hg", "update", string(rev))
+	if rev == "" {
+		return runFromWkspcDir(r.WkspcPath(), "hg", "update")
+	}
+	return runFromWkspcDir(r.WkspcPath(), "hg", "update", "-r", string(rev))
 }
 
 // HgRevRead retrieves the given or current wkspc rev.  A Revision struct

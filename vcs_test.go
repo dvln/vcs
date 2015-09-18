@@ -31,11 +31,11 @@ func TestTypeSwitch(t *testing.T) {
 		}
 	}()
 
-	reader, err := NewSvnReader("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
+	getter, err := NewSvnGetter("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo")
 	if err != nil {
 		t.Error(err)
 	}
-	output, err := reader.Get()
+	output, err := getter.Get()
 	if err != nil {
 		t.Errorf("Unable to checkout SVN VCS reader for reader switching tests. Err was %s, output:\n%s", err, output)
 	}

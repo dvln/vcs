@@ -27,16 +27,6 @@ func NewSvnReader(remote, wkspc string) (*SvnReader, error) {
 	return r, nil
 }
 
-// Update support for svn reader
-func (r *SvnReader) Update(rev ...Rev) (string, error) {
-	return SvnUpdate(r, rev...)
-}
-
-// Get support for svn reader
-func (r *SvnReader) Get(rev ...Rev) (string, error) {
-	return SvnGet(r, rev...)
-}
-
 // RevSet support for svn reader
 func (r *SvnReader) RevSet(rev Rev) (string, error) {
 	return SvnRevSet(r, rev)

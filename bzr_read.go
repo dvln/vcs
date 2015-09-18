@@ -25,16 +25,6 @@ func NewBzrReader(remote, wkspc string) (*BzrReader, error) {
 	return r, nil
 }
 
-// Update support for bzr reader
-func (r *BzrReader) Update(rev ...Rev) (string, error) {
-	return BzrUpdate(r, rev...)
-}
-
-// Get support for bzr reader
-func (r *BzrReader) Get(rev ...Rev) (string, error) {
-	return BzrGet(r, rev...)
-}
-
 // RevSet support for bzr reader
 func (r *BzrReader) RevSet(rev Rev) (string, error) {
 	return BzrRevSet(r, rev)

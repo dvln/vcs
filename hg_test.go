@@ -25,33 +25,33 @@ func TestHg(t *testing.T) {
 		}
 	}()
 
-	hgReader, err := NewHgReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	hgGetter, err := NewHgGetter("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
 	if err != nil {
 		t.Errorf("Unable to instantiate new Hg VCS reader, Err: %s", err)
 	}
 
-	if hgReader.Vcs() != Hg {
+	if hgGetter.Vcs() != Hg {
 		t.Error("Hg is detecting the wrong type")
 	}
 
 	// Check the basic getters.
-	if hgReader.Remote() != "https://bitbucket.org/mattfarina/testhgrepo" {
+	if hgGetter.Remote() != "https://bitbucket.org/mattfarina/testhgrepo" {
 		t.Error("Remote not set properly")
 	}
-	if hgReader.WkspcPath() != tempDir+"/testhgrepo" {
+	if hgGetter.WkspcPath() != tempDir+"/testhgrepo" {
 		t.Error("Local disk location not set properly")
 	}
 
 	//Logger = log.New(os.Stdout, "", log.LstdFlags)
 
 	// Do an initial clone.
-	_, err = hgReader.Get()
+	_, err = hgGetter.Get()
 	if err != nil {
 		t.Errorf("Unable to clone Hg repo. Err was %s", err)
 	}
 
 	// Verify Hg repo is a Hg repo
-	path, err := hgReader.Exists(Wkspc)
+	path, err := hgGetter.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on hg repo: %s", err)
 	}
@@ -70,17 +70,17 @@ func TestHg(t *testing.T) {
 
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	nhgReader, nrerr := NewReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
-	if nrerr != nil {
-		t.Error(nrerr)
+	hgReader, err := NewReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	if err != nil {
+		t.Error(err)
 	}
 	// Verify the right oject is returned. It will check the local repo type.
-	path, err = nhgReader.Exists(Wkspc)
+	path, err = hgReader.Exists(Wkspc)
 	if err != nil {
 		t.Errorf("Existence check failed on hg repo: %s", err)
 	}
 	if path == "" {
-		t.Error("Wrong version returned from NewReader")
+		t.Errorf("Existence check failed to find workspace path: %s", path)
 	}
 
 	// Set the version using the short hash.
@@ -99,14 +99,18 @@ func TestHg(t *testing.T) {
 	}
 
 	// Perform an update.
-	_, err = hgReader.Update()
+	hgUpdater, err := NewUpdater("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = hgUpdater.Update()
 	if err != nil {
 		t.Error(err)
 	}
 
 	v, _, err = hgReader.RevRead(CoreRev)
-	if string(v[0].Core()) != "d680e82228d2" {
-		t.Error("Error checking checked out Hg version")
+	if string(v[0].Core()) != "9c6ccbca73e8" {
+		t.Errorf("Error checking checked out Hg version, expeced \"9c6ccbca73e8\", found: %s", string(v[0].Core()))
 	}
 	if err != nil {
 		t.Error(err)
