@@ -25,7 +25,7 @@ func TestHg(t *testing.T) {
 		}
 	}()
 
-	hgGetter, err := NewHgGetter("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	hgGetter, err := NewHgGetter("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
 	if err != nil {
 		t.Errorf("Unable to instantiate new Hg VCS reader, Err: %s", err)
 	}
@@ -35,7 +35,7 @@ func TestHg(t *testing.T) {
 	}
 
 	// Check the basic getters.
-	if hgGetter.Remote() != "https://bitbucket.org/mattfarina/testhgrepo" {
+	if hgGetter.Remote() != "https://bitbucket.org/dvln/testhgrepo" {
 		t.Error("Remote not set properly")
 	}
 	if hgGetter.WkspcPath() != tempDir+"/testhgrepo" {
@@ -70,7 +70,7 @@ func TestHg(t *testing.T) {
 
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	hgReader, err := NewReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	hgReader, err := NewReader("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
 	if err != nil {
 		t.Error(err)
 	}
@@ -99,7 +99,7 @@ func TestHg(t *testing.T) {
 	}
 
 	// Perform an update.
-	hgUpdater, err := NewUpdater("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
 	if err != nil {
 		t.Error(err)
 	}
@@ -109,8 +109,8 @@ func TestHg(t *testing.T) {
 	}
 
 	v, _, err = hgReader.RevRead(CoreRev)
-	if string(v[0].Core()) != "9c6ccbca73e8" {
-		t.Errorf("Error checking checked out Hg version, expeced \"9c6ccbca73e8\", found: %s", string(v[0].Core()))
+	if string(v[0].Core()) != "c5630b34f648" {
+		t.Errorf("Error checking checked out Hg version, expeced \"c5630b34f648\", found: %s", string(v[0].Core()))
 	}
 	if err != nil {
 		t.Error(err)
@@ -143,13 +143,13 @@ func TestHgExists(t *testing.T) {
 
 	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
-	_, nrerr := NewReader("https://bitbucket.org/mattfarina/testhgrepo", tempDir+"/testhgrepo")
+	_, nrerr := NewReader("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
 
 	// Try remote Hg existence checks via a Getter
-	url1 := "bitbucket.org/mattfarina/testhgrepo"
+	url1 := "bitbucket.org/dvln/testhgrepo"
 	hgGetter, err := NewHgGetter(url1, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
@@ -158,7 +158,7 @@ func TestHgExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
 	}
-	if path != "https://bitbucket.org/mattfarina/testhgrepo" {
+	if path != "https://bitbucket.org/dvln/testhgrepo" {
 		t.Fatalf("Exists failed to return remote path with correct scheme (URL: %s), found: %s", url1, path)
 	}
 
@@ -167,7 +167,7 @@ func TestHgExists(t *testing.T) {
 		return
     }
 
-	url2 := "https://bitbucket.org/mattfarina/testhgrepo"
+	url2 := "https://bitbucket.org/dvln/testhgrepo"
 	hgGetter, err = NewHgGetter(url2, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
@@ -180,7 +180,7 @@ func TestHgExists(t *testing.T) {
 		t.Fatalf("Exists failed to return matching URL path (URL: %s), found: %s", url2, path)
 	}
 
-	badurl1 := "bitbucket.org/mattfarina/notexisttesthgrepo"
+	badurl1 := "bitbucket.org/dvln/notexisttesthgrepo"
 	hgGetter, err = NewHgGetter(badurl1, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Hg getter, init should work, error: %s", err)
@@ -193,7 +193,7 @@ func TestHgExists(t *testing.T) {
 		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl1, err)
 	}
 
-	badurl2 := "https://bitbucket.org/mattfarina/notexisttesthgrepo"
+	badurl2 := "https://bitbucket.org/dvln/notexisttesthgrepo"
 	hgGetter, err = NewHgGetter(badurl2, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Hg getter, init should work, error: %s", err)
