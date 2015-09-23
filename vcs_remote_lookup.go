@@ -84,6 +84,11 @@ var vcsList = []*vcsInfo{
 		addCheck: checkURL,
 		pattern:  `^([a-z0-9_\-.]+)\.googlecode\.com/(?P<type>git|hg|svn)(/.*)?$`,
 	},
+	// Set up for sourceforge svn/git, allow future hg also...
+	{
+		addCheck: checkURL,
+		pattern:  `(?P<type>git|hg|svn)\.code\.sf\.net`,
+	},
 	// If none of the previous detect the type they will fall to this looking for the type in a generic sense
 	// by the extension to the path.
 	{
