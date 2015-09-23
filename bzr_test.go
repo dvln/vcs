@@ -25,7 +25,7 @@ func TestBzr(t *testing.T) {
 		}
 	}()
 
-	bzrGetter, err := NewBzrGetter("https://launchpad.net/~erikbrady/dvln/bzrtest-main", tempDir+"/govcstestbzrrepo")
+	bzrGetter, err := NewBzrGetter("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
 	if err != nil {
 		t.Errorf("Unable to instantiate new Bzr VCS reader, Err: %s", err)
 	}
@@ -35,7 +35,7 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Check the basic getters.
-	if bzrGetter.Remote() != "https://launchpad.net/~erikbrady/dvln/bzrtest-main" {
+	if bzrGetter.Remote() != "https://launchpad.net/dvlnbzrtest" {
 		t.Error("Remote not set properly")
 	}
 	if bzrGetter.WkspcPath() != tempDir+"/govcstestbzrrepo" {
@@ -68,7 +68,7 @@ func TestBzr(t *testing.T) {
 
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	bzrReader, err := NewReader("https://launchpad.net/~erikbrady/dvln/bzrtest-main", tempDir+"/govcstestbzrrepo")
+	bzrReader, err := NewReader("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
 	if err != nil {
 		t.Error(err)
 	}
@@ -96,7 +96,7 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Perform an update.
-	bzrUpdater, err := NewUpdater("https://launchpad.net/~erikbrady/dvln/bzrtest-main", tempDir+"/govcstestbzrrepo")
+	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,8 +106,8 @@ func TestBzr(t *testing.T) {
 	}
 
 	v, _, err = bzrReader.RevRead(CoreRev)
-	if string(v[0].Core()) != "2" {
-		t.Errorf("Error, unexpected Bzr version read, wanted \"2\", received: %s", string(v[0].Core()))
+	if string(v[0].Core()) != "3" {
+		t.Errorf("Error, unexpected Bzr version read, wanted \"3\", received: %s", string(v[0].Core()))
 	}
 	if err != nil {
 		t.Error(err)
@@ -139,13 +139,13 @@ func TestBzrExists(t *testing.T) {
 
 	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
-	_, nrerr := NewReader("https://launchpad.net/~erikbrady/dvln/bzrtest-main", tempDir+"/govcstestbzrrepo")
+	_, nrerr := NewReader("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
 	if nrerr != nil {
 		t.Error(nrerr)
 	}
 
 	// Try remote Bzr existence checks via a Getter
-	url1 := "launchpad.net/~erikbrady/dvln/bzrtest-main"
+	url1 := "launchpad.net/dvlnbzrtest"
 	bzrGetter, err := NewBzrGetter(url1, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
@@ -154,7 +154,7 @@ func TestBzrExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
 	}
-	if path != "https://launchpad.net/~erikbrady/dvln/bzrtest-main" {
+	if path != "https://launchpad.net/dvlnbzrtest" {
 		t.Fatalf("Exists failed to return remote path with correct scheme (URL: %s), found: %s", url1, path)
 	}
 
@@ -163,7 +163,7 @@ func TestBzrExists(t *testing.T) {
 		return
     }
 
-	url2 := "https://launchpad.net/~erikbrady/dvln/bzrtest-main"
+	url2 := "https://launchpad.net/dvlnbzrtest"
 	bzrGetter, err = NewBzrGetter(url2, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
@@ -176,7 +176,7 @@ func TestBzrExists(t *testing.T) {
 		t.Fatalf("Exists failed to return matching URL path (URL: %s), found: %s", url2, path)
 	}
 
-	badurl1 := "launchpad.net/~erikbrady/dvln/notexistbzrtest-main"
+	badurl1 := "launchpad.net/dvlnnotexistbzrtest"
 	bzrGetter, err = NewBzrGetter(badurl1, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Bzr getter, init should work, error: %s", err)
@@ -189,7 +189,7 @@ func TestBzrExists(t *testing.T) {
 		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl1, err)
 	}
 
-	badurl2 := "https://launchpad.net/~erikbrady/dvln/notexistbzrtest-main"
+	badurl2 := "https://launchpad.net/dvlnnotexistbzrtest"
 	bzrGetter, err = NewBzrGetter(badurl2, tempDir)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Bzr getter, init should work, error: %s", err)
