@@ -19,13 +19,13 @@ package vcs
 // where to put it locally
 type Getter interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// RevSet matches the RevSet() interface sig from RevSetter. Due to Go's
-    // design here can't just make this a RevSetter since the overall Reader
+	// design here can't just make this a RevSetter since the overall Reader
 	// in repo.go includes RevReader and the Getter interface (and how Go works
-    // is a compile error indicating duplicate method names)
-    //   see: https://groups.google.com/forum/#!topic/golang-nuts/OKgbtTW-5YQ
+	// is a compile error indicating duplicate method names)
+	//   see: https://groups.google.com/forum/#!topic/golang-nuts/OKgbtTW-5YQ
 	RevSet(Rev) (string, error)
 
 	// Exists will determine if the repo exists (remotely or in local wkspc)
@@ -59,8 +59,7 @@ func NewGetter(remote, wkspc string, vcsType ...Type) (Getter, error) {
 	// Should never fall through to here but just in case.
 	//FIXME: erik: I think we need an ErrVCSNotImplemented or
 	//       something like that to indicate the VCS does
-    //       not support the given operation (leading towards
-    //       support for VCS's that only support some ops)
+	//       not support the given operation (leading towards
+	//       support for VCS's that only support some ops)
 	return nil, ErrCannotDetectVCS
 }
-

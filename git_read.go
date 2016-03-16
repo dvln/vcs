@@ -28,7 +28,7 @@ func NewGitReader(remote, wkspc string) (*GitReader, error) {
 		return nil, ErrWrongVCS
 	}
 	r := &GitReader{}
-    r.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
+	r.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
 	if err == nil {
 		newRemote, _, err := GitCheckRemote(r, remote)
 		if err != nil {
@@ -36,7 +36,7 @@ func NewGitReader(remote, wkspc string) (*GitReader, error) {
 		}
 		r.setRemote(newRemote)
 	}
-	return r, nil	// note: above 'err' not used on purpose here..
+	return r, nil // note: above 'err' not used on purpose here..
 }
 
 // RevSet support for git reader
@@ -53,4 +53,3 @@ func (r *GitReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, strin
 func (r *GitReader) Exists(l Location) (string, error) {
 	return GitExists(r, l)
 }
-

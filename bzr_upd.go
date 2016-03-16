@@ -14,7 +14,7 @@ func NewBzrUpdater(remote, wkspc string) (Updater, error) {
 		return nil, ErrWrongVCS
 	}
 	u := &BzrUpdater{}
-    u.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
+	u.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
 	if err == nil { // Have a local wkspc FS repo, try to improve the remote..
 		remote, _, err = BzrCheckRemote(u, remote)
 		if err != nil {
@@ -34,4 +34,3 @@ func (u *BzrUpdater) Update(rev ...Rev) (string, error) {
 func (u *BzrUpdater) Exists(l Location) (string, error) {
 	return BzrExists(u, l)
 }
-

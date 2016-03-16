@@ -22,13 +22,13 @@ package vcs
 //       in build errors since the Existence itfc also is a Describer
 type Updater interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// Exists will determine if the repo exists (remotely or in local wkspc)
 	Exists(Location) (string, error)
 
 	// Update is used to merge with new central repo changes to local
-    // workspace, optionally at a given revision (specific single revision)
+	// workspace, optionally at a given revision (specific single revision)
 	Update(...Rev) (string, error)
 }
 
@@ -56,8 +56,7 @@ func NewUpdater(remote, wkspc string, vcsType ...Type) (Updater, error) {
 	// Should never fall through to here but just in case.
 	//FIXME: erik: I think we need an ErrVCSNotImplemented or
 	//       something like that to indicate the VCS does
-    //       not support the given operation (leading towards
-    //       support for VCS's that only support some ops)
+	//       not support the given operation (leading towards
+	//       support for VCS's that only support some ops)
 	return nil, ErrCannotDetectVCS
 }
-

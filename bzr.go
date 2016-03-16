@@ -3,10 +3,10 @@ package vcs
 import (
 	"os"
 	"os/exec"
-	"strings"
 	"regexp"
+	"strings"
 
-    "github.com/dvln/util/dir"
+	"github.com/dvln/util/dir"
 	"github.com/dvln/util/url"
 )
 
@@ -21,7 +21,7 @@ func init() {
 func BzrGet(g Getter, rev ...Rev) (string, error) {
 	var output string
 	var err error
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		output, err = run("bzr", "branch", g.Remote(), g.WkspcPath())
 	} else {
 		output, err = run("bzr", "branch", "-r", string(rev[0]), g.Remote(), g.WkspcPath())
@@ -36,7 +36,7 @@ func BzrUpdate(u Updater, rev ...Rev) (string, error) {
 		return output, err
 	}
 	var updOut string
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		updOut, err = runFromWkspcDir(u.WkspcPath(), "bzr", "update")
 	} else {
 		updOut, err = runFromWkspcDir(u.WkspcPath(), "bzr", "update", "-r", string(rev[0]))
@@ -131,7 +131,7 @@ func BzrExists(e Existence, l Location) (string, error) {
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("bzr", "info", scheme + "://" + remote).CombinedOutput()
+				_, err = exec.Command("bzr", "info", scheme+"://"+remote).CombinedOutput()
 				if err == nil {
 					path = scheme + "://" + remote
 					break

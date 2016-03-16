@@ -122,7 +122,7 @@ func detectVcsFromRemote(vcsURI string) (Type, string, error) {
 	//      -> convert to OS specific path (forward/backward/etc)
 	//      -> use this: DetectVcsFromFS(vcsPath string) (Type, error)
 	//      Note: also might be good to out.WrapErr any errors here and there,
-    //            if so then tests will need to be updated that check these Errs
+	//            if so then tests will need to be updated that check these Errs
 	//      eg: support NFS path in pkg/codebase search "/nfs/somedir/<name>"
 	//      eg: maybe support 'Rcs' type for codebase defn optionally (?)
 	t, e := detectVcsFromURL(vcsURI)

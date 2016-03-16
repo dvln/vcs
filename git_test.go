@@ -166,10 +166,10 @@ func TestGitExists(t *testing.T) {
 		t.Fatalf("Exists failed to return remote path with correct scheme (URL: %s), found: %s", url1, path)
 	}
 
-    if testing.Short() {
-        t.Skip("skipping remaining existence checks in short mode.")
+	if testing.Short() {
+		t.Skip("skipping remaining existence checks in short mode.")
 		return
-    }
+	}
 
 	url2 := "https://github.com/dvln/vcs"
 	gitGetter, err = NewGitGetter(url2, tempDir)

@@ -5,14 +5,14 @@ package vcs
 // support is available.
 type Reader interface {
 	// Describer interfaces has methods to determine info about a repo (remote/wkspc URL/path, VCS Type)
-    Describer
+	Describer
 
 	// RevRead is the key RevReader intfc func (eg: git clone), cannot use intfc
-    // (see URL above), this is like a "git log -1 --format=.." type of op
+	// (see URL above), this is like a "git log -1 --format=.." type of op
 	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
 
 	// RevSet is the key RevSetter intfc func (eg: git clone), cannot use intfc
-    // (see URL above), this is like a 'git checkout <rev>' type of op
+	// (see URL above), this is like a 'git checkout <rev>' type of op
 	RevSet(Rev) (string, error)
 
 	// Exists is the key Existence intfc func, cannot use intfc (see URL above),
@@ -44,4 +44,3 @@ func NewReader(remote, wkspc string, vcsType ...Type) (Reader, error) {
 	// Should never fall through to here but just in case.
 	return nil, ErrCannotDetectVCS
 }
-

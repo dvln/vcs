@@ -44,8 +44,8 @@ type Describer interface {
 // by the <VCS>Reader and other <VCS> implementations (eg: GitPulller)
 type Description struct {
 	wkspc, remote, remoteRepoName string
-	schemes []string
-	vcsType Type
+	schemes                       []string
+	vcsType                       Type
 }
 
 // Remote retrieves the remote location for a repo.
@@ -102,5 +102,3 @@ func (d *Description) setDescription(remote, remName, wkspc string, schemes []st
 	d.setSchemes(schemes)
 	d.setVcs(vcsType)
 }
-
-

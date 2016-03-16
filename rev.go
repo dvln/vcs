@@ -25,7 +25,7 @@
 package vcs
 
 import (
-    "time"
+	"time"
 )
 
 /*
@@ -38,7 +38,6 @@ func init() {
 }
 */
 
-
 // ReadScope describes how revision read ops should be focused (*if* a choice for a given VCS)
 type ReadScope string
 
@@ -47,7 +46,7 @@ type ReadScope string
 // a revision?
 const (
 	CoreRev ReadScope = "CoreRev"
-    AllData ReadScope = "AllData"
+	AllData ReadScope = "AllData"
 )
 
 // UserType indicates which revision settings we are mucking with
@@ -57,11 +56,11 @@ type UserType string
 const (
 	Author    UserType = "author"    // set author data
 	Committer UserType = "committer" // set committer data
-	AuthComm  UserType = "authcomm" // for setting both Auth & Committer
+	AuthComm  UserType = "authcomm"  // for setting both Auth & Committer
 )
 
 // Rev corresponds to a core/raw revision for a VCS, it might be a sha1,
-// it might be a tag, could be a timestamp potentially, 
+// it might be a tag, could be a timestamp potentially,
 type Rev string
 
 // FIXME: erik: these interfaces are not really used, just pondering
@@ -70,26 +69,26 @@ type Rev string
 // a Revision structure (typically, but really anything implementing
 // the interface works of course).
 type RevAccesser interface {
-    Core() Rev
-    SemVers() []Rev
-    Tags() []Rev
-    Branches() []Rev
-    TStamp(UserType) *time.Time
-    Comment() string
-    UserInfo(UserType) (string, string)
+	Core() Rev
+	SemVers() []Rev
+	Tags() []Rev
+	Branches() []Rev
+	TStamp(UserType) *time.Time
+	Comment() string
+	UserInfo(UserType) (string, string)
 }
 
 // RevStorer is focused on pushing VCS data into an in-memory storage
 // location (typically a Revision struct but anything that implements
 // the interface could be used)
 type RevStorer interface {
-    SetCore(Rev)
-    SetSemVers([]Rev)
-    SetTags([]Rev)
-    SetBranches([]Rev)
+	SetCore(Rev)
+	SetSemVers([]Rev)
+	SetTags([]Rev)
+	SetBranches([]Rev)
 	SetTStamp(UserType, *time.Time)
-    SetComment(string)
-    SetUserInfo(UserType, string, string)
+	SetComment(string)
+	SetUserInfo(UserType, string, string)
 }
 
 // Revisioner is a generic interface to a specific VCS revisions data.
@@ -100,23 +99,22 @@ type Revisioner interface {
 	RevStorer
 }
 
-
 // Rev stores basic VCS revision information, as much as can be gleaned from
 // a given VCS system with, at the very least, having support for the Core
 // VCS version identifier.
 type Revision struct {
-	core Rev                // The core/raw SCM revision (string, eg: sha1 for git)
-    semVers []Rev           // Semantic Versions (if any) on this VCS revision
-    refVers []Rev           // Commit reference versions/names (VCS specific)
-    tags []Rev              // Any tags found on this VCS revision (non Sem/Ref)
-    branches []Rev          // Any branch "latest" pointers on this VCS revision
-    ancestors []Rev         // List of ancesors of the commit
-	comment string			// Full comment for the revision
-    author string           // Full name of the revision author
-	authorId string         // User id of the revision author
-	authorTStamp *time.Time // Authors revision creation time
-	committer string        // Full name of the revision committer
-	committerId string      // User id of the revision committer
+	core            Rev        // The core/raw SCM revision (string, eg: sha1 for git)
+	semVers         []Rev      // Semantic Versions (if any) on this VCS revision
+	refVers         []Rev      // Commit reference versions/names (VCS specific)
+	tags            []Rev      // Any tags found on this VCS revision (non Sem/Ref)
+	branches        []Rev      // Any branch "latest" pointers on this VCS revision
+	ancestors       []Rev      // List of ancesors of the commit
+	comment         string     // Full comment for the revision
+	author          string     // Full name of the revision author
+	authorId        string     // User id of the revision author
+	authorTStamp    *time.Time // Authors revision creation time
+	committer       string     // Full name of the revision committer
+	committerId     string     // User id of the revision committer
 	committerTStamp *time.Time // Committers revision creation time
 }
 
@@ -124,7 +122,7 @@ type Revision struct {
 // is in the workspace local path
 type RevReader interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// RevRead retrieves the current in-workspace VCS core/raw revision
 	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
@@ -136,7 +134,7 @@ type RevReader interface {
 //       RevSet() func signatures (see comment in that file)
 type RevSetter interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// RevSet sets the revision of a package/repo (eg: git checkout)
 	RevSet(Rev) (string, error)
@@ -145,16 +143,16 @@ type RevSetter interface {
 // RevWriter will make sure data on a specified revision matches the given data
 type RevWriter interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// RevCommit examines the revision and verifies that all revision
-    // setting are applied (all tags, all branch latest, etc)... if
-    // anything is changed 'true' will be returned, only changes the
-    // workspace state (local clone for DVCS, in-memory structure
-    // only for CVCS)... see RevPush() for updating remote (central) VCS
+	// setting are applied (all tags, all branch latest, etc)... if
+	// anything is changed 'true' will be returned, only changes the
+	// workspace state (local clone for DVCS, in-memory structure
+	// only for CVCS)... see RevPush() for updating remote (central) VCS
 	RevCommit(*Revision) (bool, error)
 
-    // RevPush will push local revision changes to central clone/repo
+	// RevPush will push local revision changes to central clone/repo
 	RevPush() error
 }
 
@@ -162,7 +160,7 @@ type RevWriter interface {
 // a VCS revision details (meta-data).
 type RevReadSetWriter interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// RevRead retrieves the current in-workspace VCS core/raw revision
 	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
@@ -288,4 +286,3 @@ func (r *Revision) SetUserInfo(utype UserType, name string, userid string) {
 		r.committerId = userid
 	}
 }
-

@@ -14,7 +14,7 @@ func NewHgUpdater(remote, wkspc string) (Updater, error) {
 		return nil, ErrWrongVCS
 	}
 	u := &HgUpdater{}
-    u.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
+	u.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = HgCheckRemote(u, remote)
 		if err != nil {
@@ -22,7 +22,7 @@ func NewHgUpdater(remote, wkspc string) (Updater, error) {
 		}
 		u.setRemote(remote)
 	}
-	return u, nil	// note: above 'err' not used on purpose here..
+	return u, nil // note: above 'err' not used on purpose here..
 }
 
 // Update support for hg updater
@@ -34,4 +34,3 @@ func (u *HgUpdater) Update(rev ...Rev) (string, error) {
 func (u *HgUpdater) Exists(l Location) (string, error) {
 	return HgExists(u, l)
 }
-

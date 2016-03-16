@@ -176,10 +176,10 @@ func TestSvnExists(t *testing.T) {
 		t.Fatalf("Exists failed to return remote path with correct scheme (URL: %s), found: %s", url1, path)
 	}
 
-    if testing.Short() {
-        t.Skip("skipping remaining existence checks in short mode.")
+	if testing.Short() {
+		t.Skip("skipping remaining existence checks in short mode.")
 		return
-    }
+	}
 
 	url2 := "https://svn.code.sf.net/p/dvlnsvntest/code/trunk"
 	svnGetter, err = NewSvnGetter(url2, tempDir)
@@ -220,4 +220,3 @@ func TestSvnExists(t *testing.T) {
 		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl2, err)
 	}
 }
-

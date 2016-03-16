@@ -14,7 +14,7 @@ func NewHgGetter(remote, wkspc string) (Getter, error) {
 		return nil, ErrWrongVCS
 	}
 	g := &HgGetter{}
-    g.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
+	g.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = HgCheckRemote(g, remote)
 		if err != nil {
@@ -22,7 +22,7 @@ func NewHgGetter(remote, wkspc string) (Getter, error) {
 		}
 		g.setRemote(remote)
 	}
-	return g, nil	// note: above 'err' not used on purpose here..
+	return g, nil // note: above 'err' not used on purpose here..
 }
 
 // Get support for hg getter
@@ -39,4 +39,3 @@ func (g *HgGetter) RevSet(rev Rev) (string, error) {
 func (g *HgGetter) Exists(l Location) (string, error) {
 	return HgExists(g, l)
 }
-

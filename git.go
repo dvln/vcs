@@ -45,7 +45,7 @@ func GitUpdate(u Updater, rev ...Rev) (string, error) {
 	}
 	var pullOut string
 	// if user asks for a specific version on pull, use that
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull")
 	} else {
 		pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", u.RemoteRepoName(), string(rev[0]))
@@ -103,7 +103,7 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 	} else {
 		//FIXME: erik: correct the full data one to run something like this:
 		//% git log -1 --format='%H [%cD]%d'
-        //a862506d017d643091368d53128447d032a03f54 [Thu, 11 Sep 2014 17:45:32 -0700] (HEAD -> topic, tag: main/7353, tag: acme__main__new__1410482753, origin/main, origin/HEAD)
+		//a862506d017d643091368d53128447d032a03f54 [Thu, 11 Sep 2014 17:45:32 -0700] (HEAD -> topic, tag: main/7353, tag: acme__main__new__1410482753, origin/main, origin/HEAD)
 		//should also add author+authorid+committer+committerid and then add in the
 		//revision comment on the line following that data
 		if specificRev != "" {
@@ -143,7 +143,7 @@ func GitExists(e Existence, l Location) (string, error) {
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("git", "ls-remote", scheme + "://" + remote).CombinedOutput()
+				_, err = exec.Command("git", "ls-remote", scheme+"://"+remote).CombinedOutput()
 				if err == nil {
 					path = scheme + "://" + remote
 					break
@@ -168,7 +168,7 @@ func GitExists(e Existence, l Location) (string, error) {
 // - string: this is the new remote (current remote returned if no new remote)
 // - string: output of the Bzr command to try and determine the remote
 // - error: non-nil if an error occurred
-func GitCheckRemote (e Existence, remote string) (string, string, error) {
+func GitCheckRemote(e Existence, remote string) (string, string, error) {
 	// Make sure the wkspc Git repo is configured the same as the remote when
 	// a remote value was passed in, if no remote try and determine it here
 	var outStr string
@@ -212,4 +212,3 @@ func SetDefaultGitSchemes(schemes []string) {
 		defaultGitSchemes = schemes
 	}
 }
-

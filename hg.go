@@ -3,10 +3,10 @@ package vcs
 import (
 	"os"
 	"os/exec"
-	"strings"
 	"regexp"
+	"strings"
 
-    "github.com/dvln/util/dir"
+	"github.com/dvln/util/dir"
 	"github.com/dvln/util/url"
 )
 
@@ -24,7 +24,7 @@ func init() {
 func HgGet(g Getter, rev ...Rev) (string, error) {
 	var output string
 	var err error
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		output, err = run("hg", "clone", "-U", g.Remote(), g.WkspcPath())
 	} else {
 		output, err = run("hg", "clone", "-u", string(rev[0]), "-U", g.Remote(), g.WkspcPath())
@@ -52,7 +52,7 @@ func HgUpdate(u Updater, rev ...Rev) (string, error) {
 		return output, err
 	}
 	var updOut string
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		updOut, err = runFromWkspcDir(u.WkspcPath(), "hg", "update")
 	} else {
 		updOut, err = runFromWkspcDir(u.WkspcPath(), "hg", "update", "-r", string(rev[0]))
@@ -116,33 +116,33 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, strin
 	} else {
 		//FIXME: erik: implement more extensive hg data grab
 		//       if the client has asked for extra data (vs speed)
-/* Here is how to get the details, if no "branch:" it's default
-141 [brady-air]/Users/brady/vcs/mercurial-repo: hg log -l 1
-changeset:   26211:ea489d94e1dc
-bookmark:    @
-tag:         tip
-user:        Gregory Szorc <gregory.szorc@gmail.com>
-date:        Sat Aug 22 17:08:37 2015 -0700
-summary:     hgweb: assign ctype to requestcontext
+		/* Here is how to get the details, if no "branch:" it's default
+		   141 [brady-air]/Users/brady/vcs/mercurial-repo: hg log -l 1
+		   changeset:   26211:ea489d94e1dc
+		   bookmark:    @
+		   tag:         tip
+		   user:        Gregory Szorc <gregory.szorc@gmail.com>
+		   date:        Sat Aug 22 17:08:37 2015 -0700
+		   summary:     hgweb: assign ctype to requestcontext
 
-142 [brady-air]/Users/brady/vcs/mercurial-repo: hg log -l 1 -r 3.5.1
-changeset:   26120:1a45e49a6bed
-branch:      stable
-tag:         3.5.1
-user:        Matt Mackall <mpm@selenic.com>
-date:        Tue Sep 01 16:08:07 2015 -0500
-summary:     hgweb: fix trust of templates path (BC)
+		   142 [brady-air]/Users/brady/vcs/mercurial-repo: hg log -l 1 -r 3.5.1
+		   changeset:   26120:1a45e49a6bed
+		   branch:      stable
+		   tag:         3.5.1
+		   user:        Matt Mackall <mpm@selenic.com>
+		   date:        Tue Sep 01 16:08:07 2015 -0500
+		   summary:     hgweb: fix trust of templates path (BC)
 
-143 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify
-ea489d94e1dc tip @
-144 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify -r 3.5.1
-1a45e49a6bed (stable) 3.5.1
-145 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify -i -b -t -r 3.5.1
-1a45e49a6bed stable 3.5.1
-146 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify -i -b -t
-ea489d94e1dc default tip
-147 [brady-air]/Users/brady/vcs/mercurial-repo:
-*/
+		   143 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify
+		   ea489d94e1dc tip @
+		   144 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify -r 3.5.1
+		   1a45e49a6bed (stable) 3.5.1
+		   145 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify -i -b -t -r 3.5.1
+		   1a45e49a6bed stable 3.5.1
+		   146 [brady-air]/Users/brady/vcs/mercurial-repo: hg identify -i -b -t
+		   ea489d94e1dc default tip
+		   147 [brady-air]/Users/brady/vcs/mercurial-repo:
+		*/
 		if specificRev != "" {
 			output, err = exec.Command("hg", "identify", "-r", specificRev).CombinedOutput()
 		} else {
@@ -182,7 +182,7 @@ func HgExists(e Existence, l Location) (string, error) {
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("hg", "identify", scheme + "://" + remote).CombinedOutput()
+				_, err = exec.Command("hg", "identify", scheme+"://"+remote).CombinedOutput()
 				if err == nil {
 					path = scheme + "://" + remote
 					break
@@ -207,7 +207,7 @@ func HgExists(e Existence, l Location) (string, error) {
 // - string: this is the new remote (current remote returned if no new remote)
 // - string: output of the Bzr command to try and determine the remote
 // - error: non-nil if an error occurred
-func HgCheckRemote (e Existence, remote string) (string, string, error) {
+func HgCheckRemote(e Existence, remote string) (string, string, error) {
 	// Make sure the wkspc Hg repo is configured the same as the remote when
 	// A remote value was passed in.
 	var outStr string
@@ -254,4 +254,3 @@ func SetDefaultHgSchemes(schemes []string) {
 		defaultHgSchemes = schemes
 	}
 }
-

@@ -30,7 +30,7 @@ func NewGitUpdater(remote, wkspc string) (Updater, error) {
 	u := &GitUpdater{}
 	// Set up initial remote URL/path, repo name, wkspc path, URL schemes, VCS type
 	// FIXME: erik: weak, origin is hard coded here and in GitCheckRemote()
-    u.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
+	u.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = GitCheckRemote(u, remote)
 		if err != nil {
@@ -38,7 +38,7 @@ func NewGitUpdater(remote, wkspc string) (Updater, error) {
 		}
 		u.setRemote(remote)
 	}
-	return u, nil	// note: above 'err' not used on purpose here..
+	return u, nil // note: above 'err' not used on purpose here..
 }
 
 // Update allows generic git updater to update VCS's, like git fetch+merge
@@ -50,4 +50,3 @@ func (u *GitUpdater) Update(rev ...Rev) (string, error) {
 func (u *GitUpdater) Exists(l Location) (string, error) {
 	return GitExists(u, l)
 }
-

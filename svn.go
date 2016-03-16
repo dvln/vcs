@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"regexp"
+	"strings"
 
-    "github.com/dvln/util/dir"
+	"github.com/dvln/util/dir"
 	"github.com/dvln/util/url"
 )
 
@@ -24,7 +24,7 @@ func init() {
 func SvnGet(g Getter, rev ...Rev) (string, error) {
 	var output string
 	var err error
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		output, err = run("svn", "checkout", g.Remote(), g.WkspcPath())
 	} else {
 		output, err = run("svn", "checkout", "-r", string(rev[0]), g.Remote(), g.WkspcPath())
@@ -36,7 +36,7 @@ func SvnGet(g Getter, rev ...Rev) (string, error) {
 func SvnUpdate(u Updater, rev ...Rev) (string, error) {
 	var output string
 	var err error
-	if rev == nil || ( rev != nil && rev[0] == "" ) {
+	if rev == nil || (rev != nil && rev[0] == "") {
 		output, err = runFromWkspcDir(u.WkspcPath(), "svn", "update")
 	} else {
 		output, err = runFromWkspcDir(u.WkspcPath(), "svn", "update", "-r", string(rev[0]))
@@ -136,7 +136,7 @@ func SvnExists(e Existence, l Location) (string, error) {
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("svn", "info", scheme + "://" + remote).CombinedOutput()
+				_, err = exec.Command("svn", "info", scheme+"://"+remote).CombinedOutput()
 				if err == nil {
 					path = scheme + "://" + remote
 					break
@@ -161,7 +161,7 @@ func SvnExists(e Existence, l Location) (string, error) {
 // - string: this is the new remote (current remote returned if no new remote)
 // - string: output of the Bzr command to try and determine the remote
 // - error: non-nil if an error occurred
-func SvnCheckRemote (e Existence, remote string) (string, string, error) {
+func SvnCheckRemote(e Existence, remote string) (string, string, error) {
 	// Make sure the wkspc Svn repo is configured the same as the remote when
 	// A remote value was passed in.
 	var outStr string

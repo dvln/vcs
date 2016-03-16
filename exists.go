@@ -18,9 +18,8 @@ package vcs
 // upon the location being checked).
 type Existence interface {
 	// Describer access to VCS system details (Remote, WkspcPath, ..)
-    Describer
+	Describer
 
 	// Exists will determine if the repo exists (remotely or in local wkspc)
 	Exists(Location) (string, error)
 }
-

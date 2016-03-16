@@ -19,7 +19,7 @@ func ExampleNewReader() {
 func TestTypeSwitch(t *testing.T) {
 
 	// To test VCS reader type switching we checkout as SVN and then
-    // try to get it as a git VCS reader afterwards.
+	// try to get it as a git VCS reader afterwards.
 	tempDir, err := ioutil.TempDir("", "go-vcs-svn-tests")
 	if err != nil {
 		t.Error(err)
