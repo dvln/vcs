@@ -21,7 +21,7 @@ func init() {
 }
 
 // HgGet is used to perform an initial clone of a repository.
-func HgGet(g Getter, rev ...Rev) (string, error) {
+func HgGet(g *HgGetter, rev ...Rev) (string, error) {
 	var output string
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
@@ -38,7 +38,7 @@ func HgGet(g Getter, rev ...Rev) (string, error) {
 // Note that there will be a pull and a merge class of functionality in dvln but
 // pull is likely Mercurial pull (ie: git fetch) and merge is similar to git/hg,
 // whereas update is like a fetch/merge in git or pull/upd(/merge) in hg.
-func HgUpdate(u Updater, rev ...Rev) (string, error) {
+func HgUpdate(u *HgUpdater, rev ...Rev) (string, error) {
 	//FIXME: erik: should support a "date:<datestr>" class of rev,
 	//       if that is passed in use "-d <date>" for update, so should
 	//       all other VCS's that can support it... other option is to

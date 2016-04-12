@@ -17,17 +17,19 @@ package vcs
 // start out by adding a base VCS description structure (implements Describer)
 type GitGetter struct {
 	Description
+	mirror bool
 }
 
 // NewGitGetter creates a new instance of GitGetter. The remote and wkspc URL/dir
 // need to be passed in.
-func NewGitGetter(remote, wkspc string) (Getter, error) {
+func NewGitGetter(remote, wkspc string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
 	g := &GitGetter{}
+	g.mirror = mirror
 	g.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = GitCheckRemote(g, remote)

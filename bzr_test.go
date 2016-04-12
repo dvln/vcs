@@ -25,7 +25,7 @@ func TestBzr(t *testing.T) {
 		}
 	}()
 
-	bzrGetter, err := NewBzrGetter("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
+	bzrGetter, err := NewBzrGetter("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo", false)
 	if err != nil {
 		t.Errorf("Unable to instantiate new Bzr VCS reader, Err: %s", err)
 	}
@@ -96,7 +96,8 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Perform an update.
-	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
+	mirror := true
+	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo", !mirror, RebaseFalse)
 	if err != nil {
 		t.Error(err)
 	}
@@ -146,7 +147,7 @@ func TestBzrExists(t *testing.T) {
 
 	// Try remote Bzr existence checks via a Getter
 	url1 := "launchpad.net/dvlnbzrtest"
-	bzrGetter, err := NewBzrGetter(url1, tempDir)
+	bzrGetter, err := NewBzrGetter(url1, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
 	}
@@ -164,7 +165,7 @@ func TestBzrExists(t *testing.T) {
 	}
 
 	url2 := "https://launchpad.net/dvlnbzrtest"
-	bzrGetter, err = NewBzrGetter(url2, tempDir)
+	bzrGetter, err = NewBzrGetter(url2, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
 	}
@@ -177,7 +178,7 @@ func TestBzrExists(t *testing.T) {
 	}
 
 	badurl1 := "launchpad.net/dvlnnotexistbzrtest"
-	bzrGetter, err = NewBzrGetter(badurl1, tempDir)
+	bzrGetter, err = NewBzrGetter(badurl1, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Bzr getter, init should work, error: %s", err)
 	}
@@ -190,7 +191,7 @@ func TestBzrExists(t *testing.T) {
 	}
 
 	badurl2 := "https://launchpad.net/dvlnnotexistbzrtest"
-	bzrGetter, err = NewBzrGetter(badurl2, tempDir)
+	bzrGetter, err = NewBzrGetter(badurl2, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Bzr getter, init should work, error: %s", err)
 	}

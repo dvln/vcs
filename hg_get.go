@@ -3,17 +3,19 @@ package vcs
 // HgGetter implements the Repo interface for the Mercurial source control.
 type HgGetter struct {
 	Description
+	mirror bool
 }
 
 // NewHgGetter creates a new instance of HgGetter. The remote and wkspc directories
 // need to be passed in.
-func NewHgGetter(remote, wkspc string) (Getter, error) {
+func NewHgGetter(remote, wkspc string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Hg. Need to report an error.
 	if err == nil && ltype != Hg {
 		return nil, ErrWrongVCS
 	}
 	g := &HgGetter{}
+	g.mirror = mirror
 	g.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = HgCheckRemote(g, remote)

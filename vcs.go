@@ -83,14 +83,35 @@ type Location string
 
 // Location settings
 const (
-	Wkspc  Location = "wkspc"
+	// Wkspc indicates we have a local clone in a work area
+	Wkspc Location = "wkspc"
+	// Remote indicates we have a remote clone not on the local host
 	Remote Location = "remote"
+)
+
+// RebaseVal indicates what rebase mode is active
+type RebaseVal int
+
+// Rebase settings that are valid
+const (
+	// RebaseFalse indicates we are in merge mode, not rebase mode
+	RebaseFalse RebaseVal = 0
+	// RebaseTrue means we are standard rebase merge mode
+	RebaseTrue RebaseVal = 1
+	// RebasePreserve means rebase but local merge commits aren't flattened
+	RebasePreserve RebaseVal = 2
 )
 
 // run will execute the given cmd and args and return the output and
 // any error that occurred.
 func run(cmd string, args ...string) (string, error) {
-	output, err := exec.Command(cmd, args...).CombinedOutput()
+	var finalArgs []string
+	for _, arg := range args {
+		if arg != "" {
+			finalArgs = append(finalArgs, arg)
+		}
+	}
+	output, err := exec.Command(cmd, finalArgs...).CombinedOutput()
 	return string(output), err
 }
 
@@ -107,8 +128,13 @@ func runFromWkspcDir(wkspcDir, cmd string, args ...string) (string, error) {
 		return "", err
 	}
 	defer os.Chdir(oldDir)
-
-	return run(cmd, args...)
+	var finalArgs []string
+	for _, arg := range args {
+		if arg != "" {
+			finalArgs = append(finalArgs, arg)
+		}
+	}
+	return run(cmd, finalArgs...)
 }
 
 // detectVCSType tries to determine what VCS we are working with and can

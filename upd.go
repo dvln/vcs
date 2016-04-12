@@ -37,26 +37,32 @@ type Updater interface {
 // is minimal (eg: not a full URL with scheme) then this will try and detect
 // VCS type (if unable to determine an ErrCannotDetectVCS will be returned).
 // Note: This function can make network calls to try to determine the VCS
-func NewUpdater(remote, wkspc string, vcsType ...Type) (Updater, error) {
+// Params:
+//	remote (string): URL of remote repo
+//	wkspc (string): Directory for the local workspace
+//	mirror (bool): if a full mirroring of all content is desired
+//	rebase (RebaseVal): if rebase wanted or not, what type
+//  vcsType (Type): optional; forcibly tell the pkg what the vcs type is (no auto-determination)
+func NewUpdater(remote, wkspc string, mirror bool, rebase RebaseVal, vcsType ...Type) (Updater, error) {
 	vtype, remote, err := detectVCSType(remote, wkspc, vcsType...)
 	if err != nil {
 		return nil, err
 	}
 	switch vtype {
 	case Git:
-		return NewGitUpdater(remote, wkspc)
+		return NewGitUpdater(remote, wkspc, mirror, rebase)
 	case Svn:
-		return NewSvnUpdater(remote, wkspc)
+		return NewSvnUpdater(remote, wkspc, mirror, rebase)
 	case Hg:
-		return NewHgUpdater(remote, wkspc)
+		return NewHgUpdater(remote, wkspc, mirror, rebase)
 	case Bzr:
-		return NewBzrUpdater(remote, wkspc)
+		return NewBzrUpdater(remote, wkspc, mirror, rebase)
 	}
 
-	// Should never fall through to here but just in case.
-	//FIXME: erik: I think we need an ErrVCSNotImplemented or
+	//FIXME: I think we need an ErrVCSNotImplemented or
 	//       something like that to indicate the VCS does
 	//       not support the given operation (leading towards
 	//       support for VCS's that only support some ops)
+	// Should never fall through to here but just in case.
 	return nil, ErrCannotDetectVCS
 }

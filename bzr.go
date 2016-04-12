@@ -18,7 +18,7 @@ func init() {
 }
 
 // BzrGet is used to perform an initial clone of a repository.
-func BzrGet(g Getter, rev ...Rev) (string, error) {
+func BzrGet(g *BzrGetter, rev ...Rev) (string, error) {
 	var output string
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
@@ -30,7 +30,7 @@ func BzrGet(g Getter, rev ...Rev) (string, error) {
 }
 
 // BzrUpdate performs a Bzr pull and update to an existing checkout.
-func BzrUpdate(u Updater, rev ...Rev) (string, error) {
+func BzrUpdate(u *BzrUpdater, rev ...Rev) (string, error) {
 	output, err := runFromWkspcDir(u.WkspcPath(), "bzr", "pull")
 	if err != nil {
 		return output, err

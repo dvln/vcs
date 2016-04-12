@@ -17,19 +17,27 @@ package vcs
 // start out by adding a base VCS description structure (implements Describer)
 type GitUpdater struct {
 	Description
+	mirror bool
+	rebase RebaseVal
 }
 
 // NewGitUpdater creates a new instance of GitUpdater. The remote and wkspc URL/dir
-// need to be passed in.
-func NewGitUpdater(remote, wkspc string) (Updater, error) {
+// need to be passed in.  Params:
+//	remote (string): URL of remote repo
+//	wkspc (string): Directory for the local workspace
+//	mirror (bool): if a full mirroring of all content is desired
+//	rebase (RebaseVal): if rebase wanted or not, what type
+func NewGitUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
 	u := &GitUpdater{}
+	u.mirror = mirror
+	u.rebase = rebase
 	// Set up initial remote URL/path, repo name, wkspc path, URL schemes, VCS type
-	// FIXME: erik: weak, origin is hard coded here and in GitCheckRemote()
+	// FIXME: weak, origin is hard coded here and in GitCheckRemote()
 	u.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = GitCheckRemote(u, remote)

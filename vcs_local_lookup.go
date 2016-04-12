@@ -20,7 +20,7 @@ func DetectVcsFromFS(vcsPath string) (Type, error) {
 	// Walk through each of the different VCS types to see if
 	// one can be detected. Do this is order of guessed popularity.
 	if _, err := os.Stat(vcsPath + seperator + ".git"); err == nil {
-		return Git, nil
+		return Git, nil // standard git clone
 	}
 	if _, err := os.Stat(vcsPath + seperator + ".svn"); err == nil {
 		return Svn, nil
@@ -31,8 +31,12 @@ func DetectVcsFromFS(vcsPath string) (Type, error) {
 	if _, err := os.Stat(vcsPath + seperator + ".bzr"); err == nil {
 		return Bzr, nil
 	}
+	if _, err := os.Stat(vcsPath + seperator + "refs"); err == nil {
+		if _, err = os.Stat(vcsPath + seperator + "config"); err == nil {
+			return Git, nil // bare/mirror git clone
+		}
+	}
 
 	// If one was not already detected than we default to not finding it.
 	return "", ErrCannotDetectVCS
-
 }

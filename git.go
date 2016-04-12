@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dvln/util/dir"
+	"github.com/dvln/util/file"
 	"github.com/dvln/util/url"
 )
 
@@ -17,9 +18,12 @@ func init() {
 
 // GitGet is used to perform an initial clone of a repository, returns
 // output and error
-// FIXME: erik: need to support verbosity levels for output
-func GitGet(g Getter, rev ...Rev) (string, error) {
-	output, err := run("git", "clone", g.Remote(), g.WkspcPath())
+func GitGet(g *GitGetter, rev ...Rev) (string, error) {
+	mirrorStr := ""
+	if g.mirror { // if in mirror clone mode add in --mirror
+		mirrorStr = "--mirror"
+	}
+	output, err := run("git", "clone", mirrorStr, g.Remote(), g.WkspcPath())
 	if rev != nil {
 		checkoutOut, err := g.RevSet(rev[0])
 		if err != nil {
@@ -30,27 +34,46 @@ func GitGet(g Getter, rev ...Rev) (string, error) {
 	return output, err
 }
 
-// GitUpdate performs an git fetch and merge to an existing checkout (or
+// GitUpdate performs a git fetch and merge to an existing checkout (ie:
 // a git pull).  The return is the output (string) and any error that may
 // have occurred.
-func GitUpdate(u Updater, rev ...Rev) (string, error) {
+func GitUpdate(u *GitUpdater, rev ...Rev) (string, error) {
 	// Perform a fetch to make sure everything is up to date, note that
 	// we fetch all versions from the remote tracking branch (depending
 	// on the revision of git)
 	// FIXME: erik: check: may need to add string(rev[0]) as the last option
 	//        if rev[0] is given so we fetch the right ref to merge with (?)
-	output, err := runFromWkspcDir(u.WkspcPath(), "git", "fetch", u.RemoteRepoName())
+	var output string
+	var err error
+	if u.mirror {
+		output, err = runFromWkspcDir(u.WkspcPath(), "git", "remote", "update", u.RemoteRepoName())
+	} else {
+		output, err = runFromWkspcDir(u.WkspcPath(), "git", "fetch", u.RemoteRepoName())
+	}
 	if err != nil {
 		return output, err
 	}
-	var pullOut string
-	// if user asks for a specific version on pull, use that
-	if rev == nil || (rev != nil && rev[0] == "") {
-		pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull")
-	} else {
-		pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", u.RemoteRepoName(), string(rev[0]))
+
+	if !u.mirror {
+		// if user asks for a specific version on pull, use that
+		rebaseStr := "--rebase=false"
+		switch u.rebase {
+		case RebaseTrue:
+			rebaseStr = "--rebase=true"
+		case RebasePreserve:
+			rebaseStr = "--rebase=preserve"
+		default:
+			rebaseStr = ""
+		}
+		var pullOut string
+		if rev == nil || (rev != nil && rev[0] == "") {
+			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr)
+		} else {
+			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr, u.RemoteRepoName(), string(rev[0]))
+		}
+		output = output + pullOut
 	}
-	output = output + pullOut
+
 	return output, err
 }
 
@@ -101,7 +124,7 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 		rev.SetCore(Rev(strings.TrimSpace(string(output))))
 		revs = append(revs, rev)
 	} else {
-		//FIXME: erik: correct the full data one to run something like this:
+		//FIXME: correct the full data one to run something like this:
 		//% git log -1 --format='%H [%cD]%d'
 		//a862506d017d643091368d53128447d032a03f54 [Thu, 11 Sep 2014 17:45:32 -0700] (HEAD -> topic, tag: main/7353, tag: acme__main__new__1410482753, origin/main, origin/HEAD)
 		//should also add author+authorid+committer+committerid and then add in the
@@ -127,7 +150,12 @@ func GitExists(e Existence, l Location) (string, error) {
 	path := ""
 	if l == Wkspc {
 		if exists, err := dir.Exists(e.WkspcPath() + "/.git"); exists && err == nil {
-			return e.WkspcPath(), nil
+			return e.WkspcPath(), nil // if non-bare, non-mirror we should find it here
+		}
+		if exists, err := dir.Exists(e.WkspcPath() + "/refs"); exists && err == nil {
+			if exists, err = file.Exists(e.WkspcPath() + "/config"); exists && err == nil {
+				return e.WkspcPath(), nil // if bare/mirror, we do a rough check here
+			}
 		}
 		//FIXME: erik: if err != nil should use something like:
 		//       out.WrapErrf(ErrNoExists, #, "%v git location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)

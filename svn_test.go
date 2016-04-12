@@ -27,7 +27,7 @@ func TestSvn(t *testing.T) {
 		}
 	}()
 
-	svnGetter, err := NewSvnGetter("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo")
+	svnGetter, err := NewSvnGetter("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", false)
 	if err != nil {
 		t.Errorf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
@@ -113,7 +113,8 @@ func TestSvn(t *testing.T) {
 	}
 
 	// Perform an update which should take up back to the latest version.
-	svnUpdater, err := NewSvnUpdater("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo")
+	mirror := true
+	svnUpdater, err := NewSvnUpdater("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", !mirror, RebaseFalse)
 	if err != nil {
 		t.Error(err)
 	}
@@ -164,7 +165,7 @@ func TestSvnExists(t *testing.T) {
 
 	// Try remote Svn existence checks via a Getter
 	url1 := "svn.code.sf.net/p/dvlnsvntest/code/trunk"
-	svnGetter, err := NewSvnGetter(url1, tempDir)
+	svnGetter, err := NewSvnGetter(url1, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
 	}
@@ -182,7 +183,7 @@ func TestSvnExists(t *testing.T) {
 	}
 
 	url2 := "https://svn.code.sf.net/p/dvlnsvntest/code/trunk"
-	svnGetter, err = NewSvnGetter(url2, tempDir)
+	svnGetter, err = NewSvnGetter(url2, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
 	}
@@ -195,7 +196,7 @@ func TestSvnExists(t *testing.T) {
 	}
 
 	badurl1 := "svn://svn.code.sf.net/p/notexistdvlnsvntest/code/trunk"
-	svnGetter, err = NewSvnGetter(badurl1, tempDir)
+	svnGetter, err = NewSvnGetter(badurl1, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Svn getter, init should work, error: %s", err)
 	}
@@ -208,7 +209,7 @@ func TestSvnExists(t *testing.T) {
 	}
 
 	badurl2 := "https://svn.code.sf.net/p/notexistdvlnsvntest/code/trunk"
-	svnGetter, err = NewSvnGetter(badurl2, tempDir)
+	svnGetter, err = NewSvnGetter(badurl2, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Svn getter, init should work, error: %s", err)
 	}

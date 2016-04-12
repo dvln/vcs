@@ -45,7 +45,9 @@ type ReadScope string
 // all that is guaranteed there) or for as much data as we can populate about
 // a revision?
 const (
+	// CoreRev indicates to read just the core sha1 version data (good for fast existence check)
 	CoreRev ReadScope = "CoreRev"
+	// AllData indicates to read all the data we can about the revision (tags/etc, can be slower)
 	AllData ReadScope = "AllData"
 )
 
@@ -54,9 +56,12 @@ const (
 type UserType string
 
 const (
-	Author    UserType = "author"    // set author data
-	Committer UserType = "committer" // set committer data
-	AuthComm  UserType = "authcomm"  // for setting both Auth & Committer
+	// Author indicates to set the author data
+	Author UserType = "author"
+	// Committer indicates to set the committer data
+	Committer UserType = "committer"
+	// AuthComm indicates to set both Author and Committer
+	AuthComm UserType = "authcomm"
 )
 
 // Rev corresponds to a core/raw revision for a VCS, it might be a sha1,

@@ -21,7 +21,7 @@ func init() {
 // SvnGet is used to perform an initial checkout of a repository.
 // Note, because SVN isn't distributed this is a checkout without
 // a clone.  One can checkout an optionally passed in revision.
-func SvnGet(g Getter, rev ...Rev) (string, error) {
+func SvnGet(g *SvnGetter, rev ...Rev) (string, error) {
 	var output string
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
@@ -33,7 +33,7 @@ func SvnGet(g Getter, rev ...Rev) (string, error) {
 }
 
 // SvnUpdate performs an SVN update to an existing checkout (ie: a merge).
-func SvnUpdate(u Updater, rev ...Rev) (string, error) {
+func SvnUpdate(u *SvnUpdater, rev ...Rev) (string, error) {
 	var output string
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {

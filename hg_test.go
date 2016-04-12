@@ -25,7 +25,7 @@ func TestHg(t *testing.T) {
 		}
 	}()
 
-	hgGetter, err := NewHgGetter("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
+	hgGetter, err := NewHgGetter("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", false)
 	if err != nil {
 		t.Errorf("Unable to instantiate new Hg VCS reader, Err: %s", err)
 	}
@@ -99,7 +99,8 @@ func TestHg(t *testing.T) {
 	}
 
 	// Perform an update.
-	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
+	mirror := true
+	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", !mirror, RebaseFalse)
 	if err != nil {
 		t.Error(err)
 	}
@@ -150,7 +151,7 @@ func TestHgExists(t *testing.T) {
 
 	// Try remote Hg existence checks via a Getter
 	url1 := "bitbucket.org/dvln/testhgrepo"
-	hgGetter, err := NewHgGetter(url1, tempDir)
+	hgGetter, err := NewHgGetter(url1, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
 	}
@@ -168,7 +169,7 @@ func TestHgExists(t *testing.T) {
 	}
 
 	url2 := "https://bitbucket.org/dvln/testhgrepo"
-	hgGetter, err = NewHgGetter(url2, tempDir)
+	hgGetter, err = NewHgGetter(url2, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
 	}
@@ -181,7 +182,7 @@ func TestHgExists(t *testing.T) {
 	}
 
 	badurl1 := "bitbucket.org/dvln/notexisttesthgrepo"
-	hgGetter, err = NewHgGetter(badurl1, tempDir)
+	hgGetter, err = NewHgGetter(badurl1, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Hg getter, init should work, error: %s", err)
 	}
@@ -194,7 +195,7 @@ func TestHgExists(t *testing.T) {
 	}
 
 	badurl2 := "https://bitbucket.org/dvln/notexisttesthgrepo"
-	hgGetter, err = NewHgGetter(badurl2, tempDir)
+	hgGetter, err = NewHgGetter(badurl2, tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Hg getter, init should work, error: %s", err)
 	}

@@ -3,17 +3,19 @@ package vcs
 // BzrGetter implements the Repo interface for the Bzr source control.
 type BzrGetter struct {
 	Description
+	mirror bool
 }
 
 // NewBzrGetter creates a new instance of BzrGetter. The remote and wkspc
 // directories need to be passed in.
-func NewBzrGetter(remote, wkspc string) (Getter, error) {
+func NewBzrGetter(remote, wkspc string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Bzr. Need to report an error.
 	if err == nil && ltype != Bzr {
 		return nil, ErrWrongVCS
 	}
 	g := &BzrGetter{}
+	g.mirror = mirror
 	g.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
 	if err == nil { // Have a local wkspc FS repo, try to improve the remote..
 		remote, _, err = BzrCheckRemote(g, remote)
