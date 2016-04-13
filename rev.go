@@ -104,8 +104,8 @@ type Revisioner interface {
 	RevStorer
 }
 
-// Rev stores basic VCS revision information, as much as can be gleaned from
-// a given VCS system with, at the very least, having support for the Core
+// Revision stores basic VCS revision information, as much as can be gleaned
+// from a given VCS system with, at the very least, having support for the Core
 // VCS version identifier.
 type Revision struct {
 	core            Rev        // The core/raw SCM revision (string, eg: sha1 for git)
@@ -116,10 +116,10 @@ type Revision struct {
 	ancestors       []Rev      // List of ancesors of the commit
 	comment         string     // Full comment for the revision
 	author          string     // Full name of the revision author
-	authorId        string     // User id of the revision author
+	authorID        string     // User id of the revision author
 	authorTStamp    *time.Time // Authors revision creation time
 	committer       string     // Full name of the revision committer
-	committerId     string     // User id of the revision committer
+	committerID     string     // User id of the revision committer
 	committerTStamp *time.Time // Committers revision creation time
 }
 
@@ -222,9 +222,9 @@ func (r *Revision) Comment() string {
 // the same)
 func (r *Revision) UserInfo(utype UserType) (string, string) {
 	if utype == Author {
-		return r.author, r.authorId
+		return r.author, r.authorID
 	}
-	return r.committer, r.committerId
+	return r.committer, r.committerID
 }
 
 // SetCore sets the core VCS revision in the basic revision struct
@@ -284,10 +284,10 @@ func (r *Revision) SetComment(comment string) {
 func (r *Revision) SetUserInfo(utype UserType, name string, userid string) {
 	if utype == Author || utype == AuthComm {
 		r.author = name
-		r.authorId = userid
+		r.authorID = userid
 	}
 	if utype == Committer || utype == AuthComm {
 		r.committer = name
-		r.committerId = userid
+		r.committerID = userid
 	}
 }

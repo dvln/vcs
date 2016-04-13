@@ -318,7 +318,7 @@ func TestGitExists(t *testing.T) {
 
 func TestParallelGitGetUpd(t *testing.T) {
 	var wg sync.WaitGroup
-	wg.Add(6) 
+	wg.Add(6)
 	go runGetUpd(t, &wg)
 	go runGetUpd(t, &wg)
 	go runGetUpd(t, &wg)
@@ -379,4 +379,3 @@ func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
 
 	wg.Done()
 }
-

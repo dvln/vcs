@@ -14,7 +14,7 @@ import (
 )
 
 var defaultGitSchemes []string
-var	refsRegex = regexp.MustCompile(`^refs/heads/(.*)$`)
+var refsRegex = regexp.MustCompile(`^refs/heads/(.*)$`)
 
 func init() {
 	SetDefaultGitSchemes(nil)
@@ -55,7 +55,7 @@ func gitUpdateRefs(u *GitUpdater) (string, error) {
 				output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 			} else { // normal fetch requested, heads remapped, all else comes in "as-is"
 				m := refsRegex.FindStringSubmatch(ref) // look for refs/heads/<name> refs
-				if m[1] != "" { // if it was a refs/heads then map it:
+				if m[1] != "" {                        // if it was a refs/heads then map it:
 					remoteRef := fmt.Sprintf("refs/remotes/%s/%s", u.RemoteRepoName(), m[1])
 					refSpec := fmt.Sprintf("+%s:%s", ref, remoteRef)
 					output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
@@ -150,21 +150,21 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 	if vcsRev != nil && vcsRev[0] != "" {
 		specificRev = string(vcsRev[0])
 	}
-	var output []byte
+	var output string
 	rev := &Revision{}
 	var revs []Revisioner
 	var err error
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		if specificRev != "" {
-			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev).CombinedOutput()
+			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
 		} else {
-			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H").CombinedOutput()
+			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
 		}
 		if err != nil {
-			return nil, string(output), err
+			return nil, output, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		rev.SetCore(Rev(strings.TrimSpace(output)))
 		revs = append(revs, rev)
 	} else {
 		//FIXME: correct the full data one to run something like this:
@@ -173,17 +173,17 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 		//should also add author+authorid+committer+committerid and then add in the
 		//revision comment on the line following that data
 		if specificRev != "" {
-			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev).CombinedOutput()
+			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
 		} else {
-			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H").CombinedOutput()
+			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
 		}
 		if err != nil {
-			return nil, string(output), err
+			return nil, output, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		rev.SetCore(Rev(strings.TrimSpace(output)))
 		revs = append(revs, rev)
 	}
-	return revs, string(output), nil
+	return revs, output, nil
 }
 
 // GitExists verifies the wkspc or remote location is a Git repo,
@@ -216,9 +216,8 @@ func GitExists(e Existence, l Location) (string, error) {
 		}
 		if err == nil {
 			return path, nil
-		} else {
-			err = out.WrapErrf(ErrNoExist, 4501, "Remote git location, \"%s\", does not exist, err: %s", e.WkspcPath(), err)
 		}
+		err = out.WrapErrf(ErrNoExist, 4501, "Remote git location, \"%s\", does not exist, err: %s", e.WkspcPath(), err)
 	}
 	return path, err
 }
@@ -237,9 +236,9 @@ func GitCheckRemote(e Existence, remote string) (string, string, error) {
 		runDir := loc
 		output, err := run("git", runOpt, runDir, "config", "--get", "remote.origin.url")
 		if err != nil {
-			return remote, string(output), err
+			return remote, output, err
 		}
-		outStr = string(output)
+		outStr = output
 		localRemote := strings.TrimSpace(outStr)
 		if remote != "" && localRemote != remote {
 			return remote, outStr, ErrWrongRemote

@@ -107,9 +107,9 @@ type RefOp string
 
 // RefOp possibilities
 const (
-	// Fetch indicates to fetch the specific reference from our source
-	RefFetch  RefOp = "fetch"
-	// Delete indicates to delete the ref from the local clone, poof
+	// RefFetch indicates to fetch the specific reference from our source
+	RefFetch RefOp = "fetch"
+	// RefDelete indicates to delete the ref from the local clone, poof
 	RefDelete RefOp = "delete"
 )
 

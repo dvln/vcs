@@ -88,9 +88,8 @@ func SvnRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 		//       Also: specificRev isn't implemented for SVN, is it possible?
 		if specificRev != "" {
 			return nil, "", fmt.Errorf("Reading specified revision, %s, not supported by SVN", specificRev)
-		} else {
-			output, err = exec.Command("svnversion", ".").CombinedOutput()
 		}
+		output, err = exec.Command("svnversion", ".").CombinedOutput()
 		if err != nil {
 			return nil, string(output), err
 		}
@@ -101,9 +100,8 @@ func SvnRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 		//       Also: specificRev isn't implemented for SVN, is it possible?
 		if specificRev != "" {
 			return nil, "", fmt.Errorf("Reading specified revision, %s, not supported by SVN", specificRev)
-		} else {
-			output, err = exec.Command("svnversion", ".").CombinedOutput()
 		}
+		output, err = exec.Command("svnversion", ".").CombinedOutput()
 		if err != nil {
 			return nil, string(output), err
 		}
