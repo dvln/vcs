@@ -18,7 +18,7 @@ func TestSvn(t *testing.T) {
 
 	tempDir, err := ioutil.TempDir("", "go-vcs-svn-tests")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer func() {
 		err = os.RemoveAll(tempDir)
@@ -29,7 +29,7 @@ func TestSvn(t *testing.T) {
 
 	svnGetter, err := NewSvnGetter("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", false)
 	if err != nil {
-		t.Errorf("Unable to instantiate new SVN VCS reader, Err: %s", err)
+		t.Fatalf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
 
 	if svnGetter.Vcs() != Svn {
@@ -47,13 +47,13 @@ func TestSvn(t *testing.T) {
 	// Do an initial checkout.
 	_, err = svnGetter.Get()
 	if err != nil {
-		t.Errorf("Unable to checkout SVN repo. Err was %s", err)
+		t.Fatalf("Unable to checkout SVN repo. Err was %s", err)
 	}
 
 	// Verify SVN repo is a SVN repo
 	path, err := svnGetter.Exists(Wkspc)
 	if err != nil {
-		t.Errorf("Existence check failed on svn repo: %s", err)
+		t.Fatalf("Existence check failed on svn repo: %s", err)
 	}
 	if path == "" {
 		t.Error("Problem checking if SVN repo Exists in the workspace")
@@ -62,7 +62,7 @@ func TestSvn(t *testing.T) {
 	// Verify an incorrect remote is caught when NewSvnReader is used on an existing location
 	_, err = NewSvnReader("https://svn.code.sf.net/p/dvlnsvntest/code/unknownbranch", tempDir+"/VCSTestRepo")
 	if err != ErrWrongRemote {
-		t.Error("ErrWrongRemote was not triggered for SVN")
+		t.Fatal("ErrWrongRemote was not triggered for SVN")
 	}
 
 	// Test internal lookup mechanism used outside of Svn specific functionality.
@@ -82,12 +82,12 @@ func TestSvn(t *testing.T) {
 	// instance without error based on looking at the local directory.
 	// svnReader, err := NewReader("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo")
 	// if err != nil {
-	// 	t.Error(err)
+	// 	t.Fatal(err)
 	// }
 	// // Verify the right oject is returned. It will check the local repo type.
 	// path, err = svnReader.Exists(Wkspc)
 	// if err != nil {
-	// 	t.Errorf("Existence check failed on svn repo: %s", err)
+	// 	t.Fatalf("Existence check failed on svn repo: %s", err)
 	// }
 	// if path == "" {
 	// 	t.Error("Wrong version returned from NewReader")
@@ -96,7 +96,7 @@ func TestSvn(t *testing.T) {
 	// Change the version in the workspace to a previous version.
 	svnReader, err := NewSvnReader("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo")
 	if err != nil {
-		t.Errorf("Unable to instantiate new SVN VCS reader, Err: %s", err)
+		t.Fatalf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
 	output, err := svnReader.RevSet("r2")
 	if err != nil {
@@ -114,9 +114,9 @@ func TestSvn(t *testing.T) {
 
 	// Perform an update which should take up back to the latest version.
 	mirror := true
-	svnUpdater, err := NewSvnUpdater("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", !mirror, RebaseFalse)
+	svnUpdater, err := NewSvnUpdater("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", !mirror, RebaseFalse, nil)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, err = svnUpdater.Update()
 	if err != nil {
@@ -138,7 +138,7 @@ func TestSvnExists(t *testing.T) {
 	// TestSvn is already checking on a valid repo
 	tempDir, err := ioutil.TempDir("", "go-vcs-svn-tests")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer func() {
 		err = os.RemoveAll(tempDir)
@@ -150,17 +150,17 @@ func TestSvnExists(t *testing.T) {
 	svnReader, _ := NewSvnReader("", tempDir)
 	path, err := svnReader.Exists(Wkspc)
 	if err != nil {
-		t.Errorf("Existence check failed on svn repo: %s", err)
+		t.Fatalf("Existence check failed on svn repo: %s", err)
 	}
 	if path != "" {
-		t.Error("SVN repo exists check incorrectlyi indicating existence")
+		t.Fatal("SVN repo exists check incorrectlyi indicating existence")
 	}
 
 	// Test NewReader when there's no local. This should simply provide a working
 	// instance without error based on looking at the remote localtion.
 	_, err = NewReader("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo")
 	if err != nil {
-		t.Errorf("Unable to instantiate new SVN VCS reader (using generic init), Err: %s", err)
+		t.Fatalf("Unable to instantiate new SVN VCS reader (using generic init), Err: %s", err)
 	}
 
 	// Try remote Svn existence checks via a Getter

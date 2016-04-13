@@ -16,7 +16,7 @@ func TestHg(t *testing.T) {
 
 	tempDir, err := ioutil.TempDir("", "go-vcs-hg-tests")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer func() {
 		err = os.RemoveAll(tempDir)
@@ -27,7 +27,7 @@ func TestHg(t *testing.T) {
 
 	hgGetter, err := NewHgGetter("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", false)
 	if err != nil {
-		t.Errorf("Unable to instantiate new Hg VCS reader, Err: %s", err)
+		t.Fatalf("Unable to instantiate new Hg VCS reader, Err: %s", err)
 	}
 
 	if hgGetter.Vcs() != Hg {
@@ -47,7 +47,7 @@ func TestHg(t *testing.T) {
 	// Do an initial clone.
 	_, err = hgGetter.Get()
 	if err != nil {
-		t.Errorf("Unable to clone Hg repo. Err was %s", err)
+		t.Fatalf("Unable to clone Hg repo. Err was %s", err)
 	}
 
 	// Verify Hg repo is a Hg repo
@@ -72,15 +72,15 @@ func TestHg(t *testing.T) {
 	// instance without error based on looking at the local directory.
 	hgReader, err := NewReader("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	// Verify the right oject is returned. It will check the local repo type.
 	path, err = hgReader.Exists(Wkspc)
 	if err != nil {
-		t.Errorf("Existence check failed on hg repo: %s", err)
+		t.Fatalf("Existence check failed on hg repo: %s", err)
 	}
 	if path == "" {
-		t.Errorf("Existence check failed to find workspace path: %s", path)
+		t.Fatalf("Existence check failed to find workspace path: %s", path)
 	}
 
 	// Set the version using the short hash.
@@ -100,9 +100,9 @@ func TestHg(t *testing.T) {
 
 	// Perform an update.
 	mirror := true
-	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", !mirror, RebaseFalse)
+	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", !mirror, RebaseFalse, nil)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, err = hgUpdater.Update()
 	if err != nil {
@@ -124,7 +124,7 @@ func TestHgExists(t *testing.T) {
 	// TestHg is already checking on a valid repo
 	tempDir, err := ioutil.TempDir("", "go-vcs-hg-tests")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer func() {
 		err = os.RemoveAll(tempDir)
@@ -136,7 +136,7 @@ func TestHgExists(t *testing.T) {
 	hgReader, _ := NewHgReader("", tempDir)
 	path, err := hgReader.Exists(Wkspc)
 	if err != nil {
-		t.Errorf("Existence check failed on hg repo: %s", err)
+		t.Fatalf("Existence check failed on hg repo: %s", err)
 	}
 	if path != "" {
 		t.Error("Hg Exists() does not identify non-Hg location")
@@ -146,7 +146,7 @@ func TestHgExists(t *testing.T) {
 	// instance without error based on looking at the remote localtion.
 	_, nrerr := NewReader("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo")
 	if nrerr != nil {
-		t.Error(nrerr)
+		t.Fatal(nrerr)
 	}
 
 	// Try remote Hg existence checks via a Getter

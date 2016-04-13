@@ -16,7 +16,7 @@ func TestBzr(t *testing.T) {
 
 	tempDir, err := ioutil.TempDir("", "go-vcs-bzr-tests")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer func() {
 		err = os.RemoveAll(tempDir)
@@ -27,7 +27,7 @@ func TestBzr(t *testing.T) {
 
 	bzrGetter, err := NewBzrGetter("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo", false)
 	if err != nil {
-		t.Errorf("Unable to instantiate new Bzr VCS reader, Err: %s", err)
+		t.Fatalf("Unable to instantiate new Bzr VCS reader, Err: %s", err)
 	}
 
 	if bzrGetter.Vcs() != Bzr {
@@ -45,7 +45,7 @@ func TestBzr(t *testing.T) {
 	// Do an initial clone.
 	_, err = bzrGetter.Get()
 	if err != nil {
-		t.Errorf("Unable to clone Bzr repo. Err was %s", err)
+		t.Fatalf("Unable to clone Bzr repo. Err was %s", err)
 	}
 
 	// Verify Bzr repo is a Bzr repo
@@ -70,7 +70,7 @@ func TestBzr(t *testing.T) {
 	// instance without error based on looking at the local directory.
 	bzrReader, err := NewReader("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	// Verify the thing exists in the workspace
 	path, err = bzrReader.Exists(Wkspc)
@@ -97,9 +97,9 @@ func TestBzr(t *testing.T) {
 
 	// Perform an update.
 	mirror := true
-	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo", !mirror, RebaseFalse)
+	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo", !mirror, RebaseFalse, nil)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	_, err = bzrUpdater.Update()
 	if err != nil {
@@ -142,7 +142,7 @@ func TestBzrExists(t *testing.T) {
 	// instance without error based on looking at the remote localtion.
 	_, nrerr := NewReader("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo")
 	if nrerr != nil {
-		t.Error(nrerr)
+		t.Fatal(nrerr)
 	}
 
 	// Try remote Bzr existence checks via a Getter

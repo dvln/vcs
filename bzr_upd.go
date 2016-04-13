@@ -5,6 +5,7 @@ type BzrUpdater struct {
 	Description
 	mirror bool
 	rebase RebaseVal
+	refs   map[string]RefOp
 }
 
 // NewBzrUpdater creates a new instance of BzrUpdater. The remote and wkspc
@@ -13,7 +14,9 @@ type BzrUpdater struct {
 //	wkspc (string): Directory for the local workspace
 //	mirror (bool): if a full mirroring of all content is desired
 //	rebase (RebaseVal): if rebase wanted or not, what type
-func NewBzrUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater, error) {
+//	refs (map[string]RefOp): list of refs to act on w/given operation (or nil)
+// Currently ignores mirror, rebase and refs.
+func NewBzrUpdater(remote, wkspc string, mirror bool, rebase RebaseVal, refs map[string]RefOp) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Bzr. Need to report an error.
 	if err == nil && ltype != Bzr {
@@ -22,6 +25,10 @@ func NewBzrUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater
 	u := &BzrUpdater{}
 	u.mirror = mirror
 	u.rebase = rebase
+	if refs != nil { // if refs given, then set up refs to act on w/ops
+		u.refs = make(map[string]RefOp)
+		u.refs = refs
+	}
 	u.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
 	if err == nil { // Have a local wkspc FS repo, try to improve the remote..
 		remote, _, err = BzrCheckRemote(u, remote)

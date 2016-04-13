@@ -5,6 +5,7 @@ type SvnUpdater struct {
 	Description
 	mirror bool
 	rebase RebaseVal
+	refs   map[string]RefOp
 }
 
 // NewSvnUpdater creates a new instance of SvnUpdater. The remote and local directories
@@ -15,7 +16,9 @@ type SvnUpdater struct {
 //	wkspc (string): Directory for the local workspace
 //	mirror (bool): if a full mirroring of all content is desired
 //	rebase (RebaseVal): if rebase wanted or not, what type
-func NewSvnUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater, error) {
+//	refs (map[string]RefOp): list of refs to act on w/given operation (or nil)
+// Currently ignores mirror, rebase and refs.
+func NewSvnUpdater(remote, wkspc string, mirror bool, rebase RebaseVal, refs map[string]RefOp) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Svn. Need to report an error.
 	if err == nil && ltype != Svn {
@@ -24,6 +27,10 @@ func NewSvnUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater
 	u := &SvnUpdater{}
 	u.mirror = mirror
 	u.rebase = rebase
+	if refs != nil { // if refs given, then set up refs to act on w/ops
+		u.refs = make(map[string]RefOp)
+		u.refs = refs
+	}
 	u.setDescription(remote, "", wkspc, defaultSvnSchemes, Svn)
 	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
 		remote, _, err = SvnCheckRemote(u, remote)

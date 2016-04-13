@@ -2,7 +2,7 @@
 // for the base ideas folks!  Copyright at time of fork was MIT.
 //
 // Further dvln related restructuring/changes licensed via:
-// Copyright © 2015 Erik Brady <brady@dvln.org>
+// Copyright © 2015,2016 Erik Brady <brady@dvln.org>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,6 +102,17 @@ const (
 	RebasePreserve RebaseVal = 2
 )
 
+// RefOp describes operations that can be done with references
+type RefOp string
+
+// RefOp possibilities
+const (
+	// Fetch indicates to fetch the specific reference from our source
+	RefFetch  RefOp = "fetch"
+	// Delete indicates to delete the ref from the local clone, poof
+	RefDelete RefOp = "delete"
+)
+
 // run will execute the given cmd and args and return the output and
 // any error that occurred.
 func run(cmd string, args ...string) (string, error) {
@@ -118,6 +129,7 @@ func run(cmd string, args ...string) (string, error) {
 // runFromWkspcDir attempts to cd into the pkg's workspace root dir (VCS root)
 // and run the command from that location (then it cd's back).  The command
 // output is returned along with any error.
+// WARNING: any SCM using this must avoid goroutines, Chdir is no safe!!!
 func runFromWkspcDir(wkspcDir, cmd string, args ...string) (string, error) {
 	oldDir, err := os.Getwd()
 	if err != nil {

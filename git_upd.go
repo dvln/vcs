@@ -1,4 +1,4 @@
-// Copyright © 2015 Erik Brady <brady@dvln.org>
+// Copyright © 2015,2016 Erik Brady <brady@dvln.org>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ type GitUpdater struct {
 	Description
 	mirror bool
 	rebase RebaseVal
+	refs   map[string]RefOp
 }
 
 // NewGitUpdater creates a new instance of GitUpdater. The remote and wkspc URL/dir
@@ -27,7 +28,8 @@ type GitUpdater struct {
 //	wkspc (string): Directory for the local workspace
 //	mirror (bool): if a full mirroring of all content is desired
 //	rebase (RebaseVal): if rebase wanted or not, what type
-func NewGitUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater, error) {
+//	refs (map[string]RefOp): list of refs to act on w/given operation (or nil)
+func NewGitUpdater(remote, wkspc string, mirror bool, rebase RebaseVal, refs map[string]RefOp) (Updater, error) {
 	ltype, err := DetectVcsFromFS(wkspc)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
@@ -36,6 +38,10 @@ func NewGitUpdater(remote, wkspc string, mirror bool, rebase RebaseVal) (Updater
 	u := &GitUpdater{}
 	u.mirror = mirror
 	u.rebase = rebase
+	if refs != nil { // if refs given, then set up refs to act on w/ops
+		u.refs = make(map[string]RefOp)
+		u.refs = refs
+	}
 	// Set up initial remote URL/path, repo name, wkspc path, URL schemes, VCS type
 	// FIXME: weak, origin is hard coded here and in GitCheckRemote()
 	u.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)

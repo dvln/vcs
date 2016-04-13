@@ -35,9 +35,18 @@ insights and capabilities.  This is a fork of the Masterminds vcs pkg (thanks
 much to all folks above and especially the Masterminds folks) but it is
 heavily changed and moves in somewhat of a different direction at this point.
 
+## Concurrency: Goroutine Friendly?
+
+Currently only the git backend is Goroutine friendly (get/clone, upd/fetch/pull,
+revision reading, etc) and only the git backend implements the more extensive
+capabilities around mirror clones (or not) and mirror updates (or not) as well
+as specific fetch/delete ref targets working in both regular and mirror/bare
+clones.  This is an early version with this target... after refining the git
+solution the next SCM targeted for "concurrent friendly" is Hg.
+
 ## Status
 
 This is very early pre-release work that is not in use or ready for regular
-use (currently: v0.1.0).  Feel free to fork and give suggestions of course
-but know it will be undergoing dramatic change throughout 2015 (at least).
+use (currently: v0.2.0).  Feel free to fork and give suggestions of course
+but know it will be undergoing dramatic change throughout 2016 (at least).
 

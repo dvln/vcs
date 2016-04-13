@@ -1,4 +1,4 @@
-// Copyright © 2015 Erik Brady <brady@dvln.org>
+// Copyright © 2015,2016 Erik Brady <brady@dvln.org>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,21 +42,24 @@ type Updater interface {
 //	wkspc (string): Directory for the local workspace
 //	mirror (bool): if a full mirroring of all content is desired
 //	rebase (RebaseVal): if rebase wanted or not, what type
+//	refs (map[string]RefOp): if specific "refs" to update|delete, list here w/what to do
+//	- ref is any string references an SCM uses (ops: RefDelete, RefFetch)
+//  - if refs set, rebase ignored (mirror can be used, see <scm>.go for details)
 //  vcsType (Type): optional; forcibly tell the pkg what the vcs type is (no auto-determination)
-func NewUpdater(remote, wkspc string, mirror bool, rebase RebaseVal, vcsType ...Type) (Updater, error) {
+func NewUpdater(remote, wkspc string, mirror bool, rebase RebaseVal, refs map[string]RefOp, vcsType ...Type) (Updater, error) {
 	vtype, remote, err := detectVCSType(remote, wkspc, vcsType...)
 	if err != nil {
 		return nil, err
 	}
 	switch vtype {
 	case Git:
-		return NewGitUpdater(remote, wkspc, mirror, rebase)
+		return NewGitUpdater(remote, wkspc, mirror, rebase, refs)
 	case Svn:
-		return NewSvnUpdater(remote, wkspc, mirror, rebase)
+		return NewSvnUpdater(remote, wkspc, mirror, rebase, refs)
 	case Hg:
-		return NewHgUpdater(remote, wkspc, mirror, rebase)
+		return NewHgUpdater(remote, wkspc, mirror, rebase, refs)
 	case Bzr:
-		return NewBzrUpdater(remote, wkspc, mirror, rebase)
+		return NewBzrUpdater(remote, wkspc, mirror, rebase, refs)
 	}
 
 	//FIXME: I think we need an ErrVCSNotImplemented or

@@ -1,16 +1,20 @@
 package vcs
 
 import (
-	"os"
+	"fmt"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/dvln/out"
 	"github.com/dvln/util/dir"
 	"github.com/dvln/util/file"
 	"github.com/dvln/util/url"
 )
 
 var defaultGitSchemes []string
+var	refsRegex = regexp.MustCompile(`^refs/heads/(.*)$`)
 
 func init() {
 	SetDefaultGitSchemes(nil)
@@ -34,28 +38,74 @@ func GitGet(g *GitGetter, rev ...Rev) (string, error) {
 	return output, err
 }
 
+// gitUpdateRefs is fired if GitUpdate() gets specific refs to operate
+// on... meaning fetch or delete ops (at this point).
+func gitUpdateRefs(u *GitUpdater) (string, error) {
+	var output string
+	var err error
+	runOpt := "-C"
+	runDir := u.WkspcPath()
+	for ref, refOp := range u.refs {
+		switch refOp {
+		case RefDelete:
+			output, err = run("git", runOpt, runDir, "update-ref", "-d", ref)
+		case RefFetch:
+			if u.mirror { // request is to mirror refs exactly, do so
+				refSpec := fmt.Sprintf("+%s:%s", ref, ref)
+				output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+			} else { // normal fetch requested, heads remapped, all else comes in "as-is"
+				m := refsRegex.FindStringSubmatch(ref) // look for refs/heads/<name> refs
+				if m[1] != "" { // if it was a refs/heads then map it:
+					remoteRef := fmt.Sprintf("refs/remotes/%s/%s", u.RemoteRepoName(), m[1])
+					refSpec := fmt.Sprintf("+%s:%s", ref, remoteRef)
+					output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+				} else { // bring in tags/etc under the same namespace
+					refSpec := fmt.Sprintf("+%s:%s", ref, ref)
+					output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+				}
+			}
+		default:
+			err = out.NewErrf(4502, "Update refs: invalid ref operation given \"%v\", clone: %s", refOp, u.WkspcPath())
+		}
+	}
+	return output, err
+}
+
 // GitUpdate performs a git fetch and merge to an existing checkout (ie:
 // a git pull).  The return is the output (string) and any error that may
 // have occurred.
 func GitUpdate(u *GitUpdater, rev ...Rev) (string, error) {
-	// Perform a fetch to make sure everything is up to date, note that
-	// we fetch all versions from the remote tracking branch (depending
-	// on the revision of git)
-	// FIXME: erik: check: may need to add string(rev[0]) as the last option
-	//        if rev[0] is given so we fetch the right ref to merge with (?)
+	// Perform required fetches optionally with pulls as well as handling
+	// more specific fetches on single refs (or deletion of refs)... has
+	// some handling of mirror/bare clones vs local clones and for std
+	// clones can do rebase type pulls (if that section of the routine is
+	// reached).
 	var output string
 	var err error
+	runOpt := "-C"
+	runDir := u.WkspcPath()
+	if u.refs != nil {
+		return gitUpdateRefs(u)
+	}
 	if u.mirror {
-		output, err = runFromWkspcDir(u.WkspcPath(), "git", "remote", "update", u.RemoteRepoName())
+		output, err = run("git", runOpt, runDir, "remote", "update", "--prune", u.RemoteRepoName())
 	} else {
-		output, err = runFromWkspcDir(u.WkspcPath(), "git", "fetch", u.RemoteRepoName())
+		output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName())
 	}
 	if err != nil {
 		return output, err
 	}
 
-	if !u.mirror {
-		// if user asks for a specific version on pull, use that
+	bareRepo := false
+	gitDir, workTree, err := findGitDirs(runDir)
+	if err != nil {
+		return "", err
+	}
+	if gitDir == runDir && workTree == "" {
+		bareRepo = true
+	}
+	if !u.mirror && !bareRepo { // if not a mirror and a regular clone
+		// Try and run a git pull to do the merge|rebase op
 		rebaseStr := "--rebase=false"
 		switch u.rebase {
 		case RebaseTrue:
@@ -67,13 +117,12 @@ func GitUpdate(u *GitUpdater, rev ...Rev) (string, error) {
 		}
 		var pullOut string
 		if rev == nil || (rev != nil && rev[0] == "") {
-			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr)
-		} else {
+			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr, u.RemoteRepoName())
+		} else { // if user asks for a specific version on pull, use that
 			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr, u.RemoteRepoName(), string(rev[0]))
 		}
 		output = output + pullOut
 	}
-
 	return output, err
 }
 
@@ -95,28 +144,22 @@ func GitRevSet(r RevSetter, rev Rev) (string, error) {
 // without changing this methods params or return signature (but code
 // changes  would be needed)
 func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
-	oldDir, err := os.Getwd()
-	if err != nil {
-		return nil, "", err
-	}
-	err = os.Chdir(r.WkspcPath())
-	if err != nil {
-		return nil, "", err
-	}
+	runOpt := "-C"
+	runDir := r.WkspcPath()
 	specificRev := ""
 	if vcsRev != nil && vcsRev[0] != "" {
 		specificRev = string(vcsRev[0])
 	}
 	var output []byte
-	defer os.Chdir(oldDir)
 	rev := &Revision{}
 	var revs []Revisioner
+	var err error
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		if specificRev != "" {
-			output, err = exec.Command("git", "log", "-1", "--format=%H", specificRev).CombinedOutput()
+			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev).CombinedOutput()
 		} else {
-			output, err = exec.Command("git", "log", "-1", "--format=%H").CombinedOutput()
+			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H").CombinedOutput()
 		}
 		if err != nil {
 			return nil, string(output), err
@@ -130,9 +173,9 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 		//should also add author+authorid+committer+committerid and then add in the
 		//revision comment on the line following that data
 		if specificRev != "" {
-			output, err = exec.Command("git", "log", "-1", "--format=%H", specificRev).CombinedOutput()
+			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev).CombinedOutput()
 		} else {
-			output, err = exec.Command("git", "log", "-1", "--format=%H").CombinedOutput()
+			output, err = exec.Command("git", runOpt, runDir, "log", "-1", "--format=%H").CombinedOutput()
 		}
 		if err != nil {
 			return nil, string(output), err
@@ -149,21 +192,14 @@ func GitExists(e Existence, l Location) (string, error) {
 	var err error
 	path := ""
 	if l == Wkspc {
-		if exists, err := dir.Exists(e.WkspcPath() + "/.git"); exists && err == nil {
-			return e.WkspcPath(), nil // if non-bare, non-mirror we should find it here
+		_, _, err := findGitDirs(e.WkspcPath()) // see if git clone there
+		if err == nil {
+			return e.WkspcPath(), nil // it's a local git clone, success
 		}
-		if exists, err := dir.Exists(e.WkspcPath() + "/refs"); exists && err == nil {
-			if exists, err = file.Exists(e.WkspcPath() + "/config"); exists && err == nil {
-				return e.WkspcPath(), nil // if bare/mirror, we do a rough check here
-			}
-		}
-		//FIXME: erik: if err != nil should use something like:
-		//       out.WrapErrf(ErrNoExists, #, "%v git location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
-		// if we have a scheme then just see if the repo exists...
-		if scheme != "" {
+		if scheme != "" { // if we have a scheme then see if the repo exists...
 			_, err = exec.Command("git", "ls-remote", remote).CombinedOutput()
 			if err == nil {
 				path = remote
@@ -178,14 +214,10 @@ func GitExists(e Existence, l Location) (string, error) {
 				}
 			}
 		}
-		//FIXME: erik: better erroring on failure to detect would be good here as well, such
-		//             as a combined error on the various remote URL's checked and the error
-		//             returned from each one (along with out.WrapErr's and such for tracing),
-		//             also need to dump commands in exec.Command at Trace level and output
-		//             here of those commands at Trace level also (along with other routines)
-
 		if err == nil {
 			return path, nil
+		} else {
+			err = out.WrapErrf(ErrNoExist, 4501, "Remote git location, \"%s\", does not exist, err: %s", e.WkspcPath(), err)
 		}
 	}
 	return path, err
@@ -194,27 +226,19 @@ func GitExists(e Existence, l Location) (string, error) {
 // GitCheckRemote  attempts to take a remote string (URL) and validate
 // it against any local repo and try and set it when it is empty.  Returns:
 // - string: this is the new remote (current remote returned if no new remote)
-// - string: output of the Bzr command to try and determine the remote
+// - string: output of the Git command to try and determine the remote
 // - error: non-nil if an error occurred
 func GitCheckRemote(e Existence, remote string) (string, string, error) {
 	// Make sure the wkspc Git repo is configured the same as the remote when
 	// a remote value was passed in, if no remote try and determine it here
 	var outStr string
 	if loc, err := e.Exists(Wkspc); err == nil && loc != "" {
-		oldDir, err := os.Getwd()
-		if err != nil {
-			return remote, "", err
-		}
-		err = os.Chdir(e.WkspcPath())
-		if err != nil {
-			return remote, "", err
-		}
-		defer os.Chdir(oldDir)
-		output, err := exec.Command("git", "config", "--get", "remote.origin.url").CombinedOutput()
+		runOpt := "-C"
+		runDir := loc
+		output, err := run("git", runOpt, runDir, "config", "--get", "remote.origin.url")
 		if err != nil {
 			return remote, string(output), err
 		}
-
 		outStr = string(output)
 		localRemote := strings.TrimSpace(outStr)
 		if remote != "" && localRemote != remote {
@@ -239,4 +263,29 @@ func SetDefaultGitSchemes(schemes []string) {
 	} else {
 		defaultGitSchemes = schemes
 	}
+}
+
+// findGitDirs expects to be pointed at a git workspace, either
+// bare or standard.  It'll find the gitdir and worktree dirs
+// and return them, if it fails it'll return non-nil err.  Params:
+//	path (string): path to the git workspace
+// Returns:
+//	gitDir (string): path to git metadata location
+//	workTreeDir (string): working tree, "" if bare clone
+//	err (error): a valid error if unable to find a git repo
+func findGitDirs(path string) (string, string, error) {
+	gitDir := filepath.Join(path, ".git") // see if std git clone
+	var err error
+	var exists bool
+	if exists, err = dir.Exists(gitDir); exists && err == nil {
+		return gitDir, path, nil
+	}
+	gitRefsDir := filepath.Join(path, "refs")
+	if exists, err = dir.Exists(gitRefsDir); exists && err == nil {
+		gitConfigFile := filepath.Join(path, "config")
+		if exists, err = file.Exists(gitConfigFile); exists && err == nil {
+			return path, "", nil
+		}
+	}
+	return "", "", out.WrapErrf(ErrNoExist, 4500, "Unable to find valid git dir under path: %s, err: %s", path, err)
 }

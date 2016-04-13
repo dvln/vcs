@@ -24,7 +24,6 @@ type Reader interface {
 // or an ErrCannotDetectVCS if the VCS type cannot be detected.
 // Note: This function can make network calls to try to determine the VCS
 //       (unless grabbing the repo from a wkspc/local mount)
-// FIXME: erik: use the optoinal vcsType argument going forward for speed optimizing
 func NewReader(remote, wkspc string, vcsType ...Type) (Reader, error) {
 	vtype, remote, err := detectVCSType(remote, wkspc, vcsType...)
 	if err != nil {
