@@ -319,17 +319,15 @@ func TestGitExists(t *testing.T) {
 func TestParallelGitGetUpd(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(6)
-	go runGetUpd(t, &wg)
-	go runGetUpd(t, &wg)
-	go runGetUpd(t, &wg)
-	go runGetUpd(t, &wg)
-	go runGetUpd(t, &wg)
-	go runGetUpd(t, &wg)
+	for i := 1; i <= 6; i++ {
+		go runGetUpd(t, &wg)
+	}
 	wg.Wait()
 }
 
 // runGetUpd is for multiple goroutine testing, look for race issues
 func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
+	defer wg.Done()
 	sep := string(os.PathSeparator)
 	tempDir, err := ioutil.TempDir("", "go-vcs-git-tests")
 	if err != nil {
@@ -376,6 +374,4 @@ func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	wg.Done()
 }
