@@ -17,9 +17,10 @@ package vcs
 // exists in the local workspace or at a remote URL (depending
 // upon the location being checked).
 type Existence interface {
-	// Describer access to VCS system details (Remote, WkspcPath, ..)
+	// Describer access to VCS system details (Remote, LocalRepoPath, ..)
 	Describer
 
-	// Exists will determine if the repo exists (remotely or in local wkspc)
-	Exists(Location) (string, error)
+	// Exists will determine if the repo exists (remotely or in local dir),
+	// also returns a pointer to it if so (and raw SCM results and a Go err)
+	Exists(Location) (string, Resulter, error)
 }

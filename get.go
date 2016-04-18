@@ -18,7 +18,7 @@ package vcs
 // one to pass in a vcs.Describer so it can find the remote VCS and identify
 // where to put it locally
 type Getter interface {
-	// Describer access to VCS system details (Remote, WkspcPath, ..)
+	// Describer access to VCS system details (Remote, LocalRepoPath, ..)
 	Describer
 
 	// RevSet matches the RevSet() interface sig from RevSetter. Due to Go's
@@ -26,13 +26,13 @@ type Getter interface {
 	// in repo.go includes RevReader and the Getter interface (and how Go works
 	// is a compile error indicating duplicate method names)
 	//   see: https://groups.google.com/forum/#!topic/golang-nuts/OKgbtTW-5YQ
-	RevSet(Rev) (string, error)
+	RevSet(Rev) (Resulter, error)
 
-	// Exists will determine if the repo exists (remotely or in local wkspc)
-	Exists(Location) (string, error)
+	// Exists will determine if the repo exists (remotely or in local dir)
+	Exists(Location) (string, Resulter, error)
 
 	// Get is used to perform an initial clone/checkout of a repository.
-	Get(...Rev) (string, error)
+	Get(...Rev) (Resulter, error)
 }
 
 // NewGetter returns a VCS Getter based on the given VCS description info about
@@ -40,24 +40,24 @@ type Getter interface {
 // is minimal (eg: not a full URL with scheme) then this will try and detect
 // VCS type (if unable to determine an ErrCannotDetectVCS will be returned).
 // Note: This function can make network calls to try to determine the VCS
-func NewGetter(remote, wkspc string, mirror bool, vcsType ...Type) (Getter, error) {
-	vtype, remote, err := detectVCSType(remote, wkspc, vcsType...)
+func NewGetter(remote, localPath string, mirror bool, vcsType ...Type) (Getter, error) {
+	vtype, remote, err := detectVCSType(remote, localPath, vcsType...)
 	if err != nil {
 		return nil, err
 	}
 	switch vtype {
 	case Git:
-		return NewGitGetter(remote, wkspc, mirror)
+		return NewGitGetter(remote, localPath, mirror)
 	case Svn:
-		return NewSvnGetter(remote, wkspc, mirror)
+		return NewSvnGetter(remote, localPath, mirror)
 	case Hg:
-		return NewHgGetter(remote, wkspc, mirror)
+		return NewHgGetter(remote, localPath, mirror)
 	case Bzr:
-		return NewBzrGetter(remote, wkspc, mirror)
+		return NewBzrGetter(remote, localPath, mirror)
 	}
 
 	// Should never fall through to here but just in case.
-	//FIXME: erik: I think we need an ErrVCSNotImplemented or
+	//FIXME: I think we need an ErrVCSNotImplemented or
 	//       something like that to indicate the VCS does
 	//       not support the given operation (leading towards
 	//       support for VCS's that only support some ops)

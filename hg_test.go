@@ -13,7 +13,6 @@ var _ Reader = &HgReader{}
 // with a known hg service.
 
 func TestHg(t *testing.T) {
-
 	tempDir, err := ioutil.TempDir("", "go-vcs-hg-tests")
 	if err != nil {
 		t.Fatal(err)
@@ -38,11 +37,9 @@ func TestHg(t *testing.T) {
 	if hgGetter.Remote() != "https://bitbucket.org/dvln/testhgrepo" {
 		t.Error("Remote not set properly")
 	}
-	if hgGetter.WkspcPath() != tempDir+"/testhgrepo" {
+	if hgGetter.LocalRepoPath() != tempDir+"/testhgrepo" {
 		t.Error("Local disk location not set properly")
 	}
-
-	//Logger = log.New(os.Stdout, "", log.LstdFlags)
 
 	// Do an initial clone.
 	_, err = hgGetter.Get()
@@ -51,12 +48,12 @@ func TestHg(t *testing.T) {
 	}
 
 	// Verify Hg repo is a Hg repo
-	path, err := hgGetter.Exists(Wkspc)
+	path, _, err := hgGetter.Exists(LocalPath)
 	if err != nil {
 		t.Errorf("Existence check failed on hg repo: %s", err)
 	}
 	if path == "" {
-		t.Error("Problem checking out repo or Hg Exists(Wkspc) not working")
+		t.Error("Problem checking out repo or Hg Exists(LocalPath) not working")
 	}
 
 	// Test internal lookup mechanism used outside of Hg specific functionality.
@@ -75,7 +72,7 @@ func TestHg(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Verify the right oject is returned. It will check the local repo type.
-	path, err = hgReader.Exists(Wkspc)
+	path, _, err = hgReader.Exists(LocalPath)
 	if err != nil {
 		t.Fatalf("Existence check failed on hg repo: %s", err)
 	}
@@ -100,7 +97,7 @@ func TestHg(t *testing.T) {
 
 	// Perform an update.
 	mirror := true
-	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", !mirror, RebaseFalse, nil)
+	hgUpdater, err := NewUpdater("https://bitbucket.org/dvln/testhgrepo", "", tempDir+"/testhgrepo", !mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +131,7 @@ func TestHgExists(t *testing.T) {
 	}()
 
 	hgReader, _ := NewHgReader("", tempDir)
-	path, err := hgReader.Exists(Wkspc)
+	path, _, err := hgReader.Exists(LocalPath)
 	if err != nil {
 		t.Fatalf("Existence check failed on hg repo: %s", err)
 	}
@@ -155,7 +152,7 @@ func TestHgExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
 	}
-	path, err = hgGetter.Exists(Remote)
+	path, _, err = hgGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
 	}
@@ -173,7 +170,7 @@ func TestHgExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
 	}
-	path, err = hgGetter.Exists(Remote)
+	path, _, err = hgGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url2, err)
 	}
@@ -186,7 +183,7 @@ func TestHgExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Hg getter, init should work, error: %s", err)
 	}
-	path, err = hgGetter.Exists(Remote)
+	path, _, err = hgGetter.Exists(Remote)
 	if err == nil {
 		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: %s", badurl1, err)
 	}
@@ -199,7 +196,7 @@ func TestHgExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Hg getter, init should work, error: %s", err)
 	}
-	path, err = hgGetter.Exists(Remote)
+	path, _, err = hgGetter.Exists(Remote)
 	if err == nil {
 		t.Fatalf("Failed to detect an error scanning for 2nd bad VCS location (loc: %s), error: %s", badurl2, err)
 	}

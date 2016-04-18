@@ -2,7 +2,6 @@ package vcs
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -20,122 +19,145 @@ func init() {
 	SetDefaultGitSchemes(nil)
 }
 
-// GitGet is used to perform an initial clone of a repository, returns
-// output and error
-func GitGet(g *GitGetter, rev ...Rev) (string, error) {
+// GitGet is used to perform an initial clone of a repository, optionally
+// can check out a rev, params:
+//	g (*GitGetter): the getter data we need to run the pull
+//	rev (Rev): optional; revision to checkout after getting the clone
+// Returns results (vcs cmds run, output) and any error that may have occurred
+func GitGet(g *GitGetter, rev ...Rev) (Resulter, error) {
+	results := newResults()
 	mirrorStr := ""
 	if g.mirror { // if in mirror clone mode add in --mirror
 		mirrorStr = "--mirror"
 	}
-	output, err := run("git", "clone", mirrorStr, g.Remote(), g.WkspcPath())
-	if rev != nil {
-		checkoutOut, err := g.RevSet(rev[0])
-		if err != nil {
-			return checkoutOut, err
+	result, err := run("git", "clone", mirrorStr, g.Remote(), g.LocalRepoPath())
+	results.add(result)
+	if err != nil && rev != nil {
+		// Be careful to append more results from cmds run in RevSet
+		var setResults Resulter
+		setResults, err = g.RevSet(rev[0])
+		if setResults != nil {
+			for _, revResult := range setResults.All() {
+				results.add(revResult)
+			}
 		}
-		output = output + checkoutOut
 	}
-	return output, err
+	return results, err
 }
 
 // gitUpdateRefs is fired if GitUpdate() gets specific refs to operate
-// on... meaning fetch or delete ops (at this point).
-func gitUpdateRefs(u *GitUpdater) (string, error) {
-	var output string
+// on... meaning fetch or delete ops (at this point).  Params:
+//	u (*GitUpdater): has all the data we need to run the update
+// Returns results (vcs cmds run, output) and any error that may have occurred
+func gitUpdateRefs(u *GitUpdater) (Resulter, error) {
 	var err error
+	results := newResults()
 	runOpt := "-C"
-	runDir := u.WkspcPath()
+	runDir := u.LocalRepoPath()
 	for ref, refOp := range u.refs {
+		var result *Result
 		switch refOp {
 		case RefDelete:
-			output, err = run("git", runOpt, runDir, "update-ref", "-d", ref)
+			result, err = run("git", runOpt, runDir, "update-ref", "-d", ref)
+			results.add(result)
 		case RefFetch:
 			if u.mirror { // request is to mirror refs exactly, do so
 				refSpec := fmt.Sprintf("+%s:%s", ref, ref)
-				output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+				result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 			} else { // normal fetch requested, heads remapped, all else comes in "as-is"
 				m := refsRegex.FindStringSubmatch(ref) // look for refs/heads/<name> refs
 				if m[1] != "" {                        // if it was a refs/heads then map it:
 					remoteRef := fmt.Sprintf("refs/remotes/%s/%s", u.RemoteRepoName(), m[1])
 					refSpec := fmt.Sprintf("+%s:%s", ref, remoteRef)
-					output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+					result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 				} else { // bring in tags/etc under the same namespace
 					refSpec := fmt.Sprintf("+%s:%s", ref, ref)
-					output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+					result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 				}
 			}
+			results.add(result)
 		default:
-			err = out.NewErrf(4502, "Update refs: invalid ref operation given \"%v\", clone: %s", refOp, u.WkspcPath())
+			err = out.NewErrf(4502, "Update refs: invalid ref operation given \"%v\", clone: %s", refOp, u.LocalRepoPath())
 		}
 	}
-	return output, err
+	return results, err
 }
 
 // GitUpdate performs a git fetch and merge to an existing checkout (ie:
-// a git pull).  The return is the output (string) and any error that may
-// have occurred.
-func GitUpdate(u *GitUpdater, rev ...Rev) (string, error) {
+// a git pull).  Params:
+//	u (*GitUpdater): git upd struct, gives kind of update needed, stores cmds run
+//	rev (Rev): optional; revision to update to (if given only 1 used)
+// Returns results (vcs cmds run, output) and any error that may have occurred
+func GitUpdate(u *GitUpdater, rev ...Rev) (Resulter, error) {
 	// Perform required fetches optionally with pulls as well as handling
 	// more specific fetches on single refs (or deletion of refs)... has
 	// some handling of mirror/bare clones vs local clones and for std
 	// clones can do rebase type pulls (if that section of the routine is
 	// reached).
-	var output string
 	var err error
 	runOpt := "-C"
-	runDir := u.WkspcPath()
+	runDir := u.LocalRepoPath()
 	if u.refs != nil {
 		return gitUpdateRefs(u)
 	}
+	results := newResults()
+	var result *Result
 	if u.mirror {
-		output, err = run("git", runOpt, runDir, "remote", "update", "--prune", u.RemoteRepoName())
+		result, err = run("git", runOpt, runDir, "remote", "update", "--prune", u.RemoteRepoName())
 	} else {
-		output, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName())
+		result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName())
 	}
+	results.add(result)
 	if err != nil {
-		return output, err
+		return results, err
 	}
 
 	bareRepo := false
 	gitDir, workTree, err := findGitDirs(runDir)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if gitDir == runDir && workTree == "" {
 		bareRepo = true
 	}
 	if !u.mirror && !bareRepo { // if not a mirror and a regular clone
 		// Try and run a git pull to do the merge|rebase op
-		rebaseStr := "--rebase=false"
+		rebaseStr := ""
 		switch u.rebase {
+		case RebaseFalse:
+			rebaseStr = "--rebase=false"
 		case RebaseTrue:
 			rebaseStr = "--rebase=true"
 		case RebasePreserve:
 			rebaseStr = "--rebase=preserve"
-		default:
-			rebaseStr = ""
+		default: // likely RebaseUser, meaning don't provide any rebase opt
 		}
-		var pullOut string
+		var pullResult *Result
 		if rev == nil || (rev != nil && rev[0] == "") {
-			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr, u.RemoteRepoName())
+			pullResult, err = run("git", runOpt, runDir, "pull", rebaseStr, u.RemoteRepoName())
 		} else { // if user asks for a specific version on pull, use that
-			pullOut, err = runFromWkspcDir(u.WkspcPath(), "git", "pull", rebaseStr, u.RemoteRepoName(), string(rev[0]))
+			pullResult, err = run("git", runOpt, runDir, "pull", rebaseStr, u.RemoteRepoName(), string(rev[0]))
 		}
-		output = output + pullOut
+		results.add(pullResult)
 	}
-	return output, err
+	return results, err
 }
 
-// GitRevSet sets the wkspc revision of a pkg currently checked out via Git.
+// GitRevSet sets the local repo rev of a pkg currently checked out via Git.
 // Note that a single specific revision must be given vs a generic
 // Revision structure (since it may have <N> different valid rev's
 // that reference the revision, this one decides exactly the one
-// the client wishes to "set" or checkout in the wkspc).
-func GitRevSet(r RevSetter, rev Rev) (string, error) {
-	return runFromWkspcDir(r.WkspcPath(), "git", "checkout", string(rev))
+// the client wishes to "set" or checkout in the repo path).
+func GitRevSet(r RevSetter, rev Rev) (Resulter, error) {
+	runOpt := "-C"
+	runDir := r.LocalRepoPath()
+	results := newResults()
+	result, err := run("git", runOpt, runDir, "checkout", string(rev))
+	results.add(result)
+	return results, err
 }
 
-// GitRevRead retrieves the given or current wkspc rev.  A Revision struct
+// GitRevRead retrieves the given or current local repo rev.  A Revision struct
 // pointer is returned (how filled out depends upon if the read is just the
 // basic core/raw VCS revision or full data for the given VCS which will
 // include tags, branches, timestamp info, author/committer, date, comment).
@@ -143,28 +165,30 @@ func GitRevSet(r RevSetter, rev Rev) (string, error) {
 // revisions or a range, eg GitRevRead(reader, <scope>, rev1, "..", rev2),
 // without changing this methods params or return signature (but code
 // changes  would be needed)
-func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resulter, error) {
+	results := newResults()
 	runOpt := "-C"
-	runDir := r.WkspcPath()
+	runDir := r.LocalRepoPath()
 	specificRev := ""
 	if vcsRev != nil && vcsRev[0] != "" {
 		specificRev = string(vcsRev[0])
 	}
-	var output string
 	rev := &Revision{}
 	var revs []Revisioner
 	var err error
+	var result *Result
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		if specificRev != "" {
-			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
+			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
 		} else {
-			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
+			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
 		}
+		results.add(result)
 		if err != nil {
-			return nil, output, err
+			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.output)))
 		revs = append(revs, rev)
 	} else {
 		//FIXME: correct the full data one to run something like this:
@@ -173,41 +197,50 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, stri
 		//should also add author+authorid+committer+committerid and then add in the
 		//revision comment on the line following that data
 		if specificRev != "" {
-			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
+			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
 		} else {
-			output, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
+			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
 		}
+		results.add(result)
 		if err != nil {
-			return nil, output, err
+			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.output)))
 		revs = append(revs, rev)
 	}
-	return revs, output, nil
+	return revs, results, nil
 }
 
-// GitExists verifies the wkspc or remote location is a Git repo,
-// returns where it was found (or "" if not found) and any error
-func GitExists(e Existence, l Location) (string, error) {
+// GitExists verifies the local repo or remote location is a Git repo,
+// returns where it was found (or "" if not found), the results
+// of any git cmds run (cmds and related output) and any error.
+// Note that if no git cmds run then Resulter won't have any data
+// (which occurs if the git repo is local)
+func GitExists(e Existence, l Location) (string, Resulter, error) {
+	results := newResults()
 	var err error
 	path := ""
-	if l == Wkspc {
-		_, _, err := findGitDirs(e.WkspcPath()) // see if git clone there
+	if l == LocalPath {
+		_, _, err = findGitDirs(e.LocalRepoPath()) // see if git clone there
 		if err == nil {
-			return e.WkspcPath(), nil // it's a local git clone, success
+			return e.LocalRepoPath(), nil, nil // it's a local git clone, success
 		}
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
 		if scheme != "" { // if we have a scheme then see if the repo exists...
-			_, err = exec.Command("git", "ls-remote", remote).CombinedOutput()
+			var result *Result
+			result, err = run("git", "ls-remote", remote)
+			results.add(result)
 			if err == nil {
 				path = remote
 			}
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("git", "ls-remote", scheme+"://"+remote).CombinedOutput()
+				var result *Result
+				result, err = run("git", "ls-remote", scheme+"://"+remote)
+				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
 					break
@@ -215,42 +248,57 @@ func GitExists(e Existence, l Location) (string, error) {
 			}
 		}
 		if err == nil {
-			return path, nil
+			return path, results, nil
 		}
-		err = out.WrapErrf(ErrNoExist, 4501, "Remote git location, \"%s\", does not exist, err: %s", e.WkspcPath(), err)
+		err = out.WrapErrf(ErrNoExist, 4501, "Remote git location, \"%s\", does not exist, err: %s", e.LocalRepoPath(), err)
 	}
-	return path, err
+	return path, results, err
 }
 
 // GitCheckRemote  attempts to take a remote string (URL) and validate
 // it against any local repo and try and set it when it is empty.  Returns:
 // - string: this is the new remote (current remote returned if no new remote)
-// - string: output of the Git command to try and determine the remote
+// - Resulter: cmds and output of all git cmds attempted
 // - error: non-nil if an error occurred
-func GitCheckRemote(e Existence, remote string) (string, string, error) {
-	// Make sure the wkspc Git repo is configured the same as the remote when
+func GitCheckRemote(e Existence, remote string) (string, Resulter, error) {
+	// Make sure the local Git repo is configured the same as the remote when
 	// a remote value was passed in, if no remote try and determine it here
+	results := newResults()
 	var outStr string
-	if loc, err := e.Exists(Wkspc); err == nil && loc != "" {
+	if loc, existResults, err := e.Exists(LocalPath); err == nil && loc != "" {
+		if existResults != nil {
+			for _, existResult := range existResults.All() {
+				results.add(existResult)
+			}
+		}
 		runOpt := "-C"
 		runDir := loc
-		output, err := run("git", runOpt, runDir, "config", "--get", "remote.origin.url")
+		remoteName := e.RemoteRepoName()
+		gitString := fmt.Sprintf("remote.%s.url", remoteName)
+		result, err := run("git", runOpt, runDir, "config", "--get", gitString)
+		results.add(result)
 		if err != nil {
-			return remote, output, err
+			return remote, results, err
 		}
-		outStr = output
+		outStr = result.output
 		localRemote := strings.TrimSpace(outStr)
 		if remote != "" && localRemote != remote {
-			return remote, outStr, ErrWrongRemote
+			return remote, results, ErrWrongRemote
 		}
 
 		// If no remote was passed in but one is configured for the locally
 		// checked out Git repo use that one.
 		if remote == "" && localRemote != "" {
-			return localRemote, outStr, nil
+			return localRemote, results, nil
+		}
+	} else if err != nil {
+		if existResults != nil {
+			for _, existResult := range existResults.All() {
+				results.add(existResult)
+			}
 		}
 	}
-	return remote, outStr, nil
+	return remote, results, nil
 }
 
 // SetDefaultGitSchemes allows one to override the default ordering

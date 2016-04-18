@@ -43,7 +43,7 @@ func TestGit(t *testing.T) {
 	if gitGetter.Remote() != "https://github.com/dvln/git-test-repo" {
 		t.Error("Remote not set properly")
 	}
-	if gitGetter.WkspcPath() != tempDir+sep+"VCSTestRepo" {
+	if gitGetter.LocalRepoPath() != tempDir+sep+"VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
@@ -54,7 +54,7 @@ func TestGit(t *testing.T) {
 	}
 
 	// Verify Git repo exists in the workspace
-	path, err := gitGetter.Exists(Wkspc)
+	path, _, err := gitGetter.Exists(LocalPath)
 	if err != nil {
 		t.Fatalf("Existence check failed on git repo: %s", err)
 	}
@@ -82,7 +82,7 @@ func TestGit(t *testing.T) {
 	}
 
 	// See if the new git VCS reader was instantiated in the workspace
-	path, err = gitReader.Exists(Wkspc)
+	path, _, err = gitReader.Exists(LocalPath)
 	if err != nil {
 		t.Errorf("Existence check failed on git repo: %s", err)
 	}
@@ -91,19 +91,19 @@ func TestGit(t *testing.T) {
 	}
 
 	// Perform an update operation
-	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", !mirror, RebaseFalse, nil)
+	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", tempDir+sep+"VCSTestRepo", !mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = gitUpdater.Update()
+	results, err := gitUpdater.Update()
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("Failed to run git update, error: %s, results:\n%s", err, results)
 	}
 
 	// Set the version (checkout) using a short sha1 that should exist
-	_, err = gitReader.RevSet("3f690c9")
+	results, err = gitReader.RevSet("3f690c9")
 	if err != nil {
-		t.Errorf("Unable to update Git repo version. Err was %s", err)
+		t.Fatalf("Unable to update Git repo version. Err was: %s, results:\n%s", err, results)
 	}
 
 	// Use RevRead to verify we are on the right version.
@@ -163,7 +163,7 @@ func TestBareGit(t *testing.T) {
 	if gitGetter.Remote() != "https://github.com/dvln/git-test-repo" {
 		t.Error("Remote not set properly")
 	}
-	if gitGetter.WkspcPath() != tempDir+sep+"VCSTestRepo" {
+	if gitGetter.LocalRepoPath() != tempDir+sep+"VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
@@ -174,7 +174,7 @@ func TestBareGit(t *testing.T) {
 	}
 
 	// Verify Git repo exists in the workspace
-	path, err := gitGetter.Exists(Wkspc)
+	path, _, err := gitGetter.Exists(LocalPath)
 	if err != nil {
 		t.Errorf("Existence check failed on git repo: %s", err)
 	}
@@ -198,7 +198,7 @@ func TestBareGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	// See if the new git VCS reader was instantiated in the workspace
-	path, err = gitReader.Exists(Wkspc)
+	path, _, err = gitReader.Exists(LocalPath)
 	if err != nil {
 		t.Fatalf("Existence check failed on git repo: %s", err)
 	}
@@ -216,7 +216,7 @@ func TestBareGit(t *testing.T) {
 	}
 
 	// Perform a remote update class operation (ie: mirror update w/prune of deleted refs)
-	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, nil)
+	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,20 +224,20 @@ func TestBareGit(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	runDir := gitUpdater.WkspcPath()
+	runDir := gitUpdater.LocalRepoPath()
 	runOpt := "-C"
 
 	// See if the branch exists (should exist, this is a mirror)
-	output, err := run("git", runOpt, runDir, "rev-parse", "--verify", "testbr1")
+	result, err := run("git", runOpt, runDir, "rev-parse", "--verify", "testbr1")
 	if err != nil {
-		t.Fatalf("Failed to detect local testbr1, should be there: %s\n%s", err, output)
+		t.Fatalf("Failed to detect local testbr1, should be there: %s\n%s", err, result.output)
 	}
 
 	// Perform specific fetch operations on one ref, delete another ref
 	refs := make(map[string]RefOp)
 	refs["refs/heads/master"] = RefFetch
 	refs["refs/heads/testbr1"] = RefDelete
-	gitUpdater2, err := NewUpdater("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, refs)
+	gitUpdater2, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, refs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +270,7 @@ func TestGitExists(t *testing.T) {
 	}()
 
 	gitReader, _ := NewGitReader("", tempDir)
-	path, err := gitReader.Exists(Wkspc)
+	path, _, err := gitReader.Exists(LocalPath)
 	if path != "" {
 		t.Error("Git Exists is not correctly identifying non-Git pkg/repo")
 	}
@@ -289,7 +289,7 @@ func TestGitExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Git getter, error: %s", err)
 	}
-	path, err = gitGetter.Exists(Remote)
+	path, _, err = gitGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
 	}
@@ -307,9 +307,9 @@ func TestGitExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Git getter, init should work, error: %s", err)
 	}
-	path, err = gitGetter.Exists(Remote)
+	path, results, err := gitGetter.Exists(Remote)
 	if err == nil {
-		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: %s", badurl1, err)
+		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: nil, results:\n%s", badurl1, results)
 	}
 	if path != "" {
 		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl1, err)
@@ -353,7 +353,7 @@ func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
 	}
 
 	// Perform an update operation
-	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, nil)
+	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -366,7 +366,7 @@ func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
 	refs := make(map[string]RefOp)
 	refs["refs/heads/master"] = RefFetch
 	refs["refs/heads/testbr1"] = RefDelete
-	gitUpdater2, err := NewUpdater("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, refs)
+	gitUpdater2, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", tempDir+sep+"VCSTestRepo", mirror, RebaseFalse, refs)
 	if err != nil {
 		t.Fatal(err)
 	}

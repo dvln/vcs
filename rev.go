@@ -30,7 +30,7 @@ import (
 
 /*
 func init() {
-// FIXME: erik: could set default regex for semversion "matching", although
+// FIXME: could set default regex for semversion "matching", although
 // it may make more sense to put this within each VCS implemented and let
 // it be overridden/controlled at the codebase and pkg level for 'dvln' as
 // well as via config file (cfg would be global or per scm, codebase would
@@ -68,7 +68,7 @@ const (
 // it might be a tag, could be a timestamp potentially,
 type Rev string
 
-// FIXME: erik: these interfaces are not really used, just pondering
+// FIXME: these interfaces are not really used, just pondering
 
 // RevAccesser is focused on getting a VCS's revision data stored in
 // a Revision structure (typically, but really anything implementing
@@ -126,11 +126,11 @@ type Revision struct {
 // RevReader examines the workspace to determine what *current* VCS rev
 // is in the workspace local path
 type RevReader interface {
-	// Describer access to VCS system details (Remote, WkspcPath, ..)
+	// Describer access to VCS system details (Remote, LocalRepoPath, ..)
 	Describer
 
 	// RevRead retrieves the current in-workspace VCS core/raw revision
-	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
+	RevRead(ReadScope, ...Rev) ([]Revisioner, Resulter, error)
 }
 
 // RevSetter changes the current workspace revision of a pkg/repo
@@ -138,16 +138,16 @@ type RevReader interface {
 //       use across all files in this package, eg: get.go has copied the
 //       RevSet() func signatures (see comment in that file)
 type RevSetter interface {
-	// Describer access to VCS system details (Remote, WkspcPath, ..)
+	// Describer access to VCS system details (Remote, LocalRepoPath, ..)
 	Describer
 
 	// RevSet sets the revision of a package/repo (eg: git checkout)
-	RevSet(Rev) (string, error)
+	RevSet(Rev) (Resulter, error)
 }
 
 // RevWriter will make sure data on a specified revision matches the given data
 type RevWriter interface {
-	// Describer access to VCS system details (Remote, WkspcPath, ..)
+	// Describer access to VCS system details (Remote, LocalRepoPath, ..)
 	Describer
 
 	// RevCommit examines the revision and verifies that all revision
@@ -155,25 +155,25 @@ type RevWriter interface {
 	// anything is changed 'true' will be returned, only changes the
 	// workspace state (local clone for DVCS, in-memory structure
 	// only for CVCS)... see RevPush() for updating remote (central) VCS
-	RevCommit(*Revision) (bool, error)
+	RevCommit(*Revision) (Resulter, error)
 
 	// RevPush will push local revision changes to central clone/repo
-	RevPush() error
+	RevPush() (Resulter, error)
 }
 
 // RevReadSetWriter combines the ability to read, set and write (commit/push)
 // a VCS revision details (meta-data).
 type RevReadSetWriter interface {
-	// Describer access to VCS system details (Remote, WkspcPath, ..)
+	// Describer access to VCS system details (Remote, LocalRepoPath, ..)
 	Describer
 
 	// RevRead retrieves the current in-workspace VCS core/raw revision
-	RevRead(ReadScope, ...Rev) ([]Revisioner, string, error)
+	RevRead(ReadScope, ...Rev) ([]Revisioner, Resulter, error)
 
 	// RevSet sets the revision of a package/repo (eg: git checkout)
-	RevSet(Rev) (string, error)
+	RevSet(Rev) (Resulter, error)
 
-	// FIXME: erik: get RevCommit and RevPush added in here
+	// FIXME: get RevCommit and RevPush added in here
 }
 
 // NewRevision will contruct a new empty revision structure

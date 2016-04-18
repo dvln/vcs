@@ -13,7 +13,6 @@ var _ Reader = &BzrReader{}
 // with a known bzr service.
 
 func TestBzr(t *testing.T) {
-
 	tempDir, err := ioutil.TempDir("", "go-vcs-bzr-tests")
 	if err != nil {
 		t.Fatal(err)
@@ -38,7 +37,7 @@ func TestBzr(t *testing.T) {
 	if bzrGetter.Remote() != "https://launchpad.net/dvlnbzrtest" {
 		t.Error("Remote not set properly")
 	}
-	if bzrGetter.WkspcPath() != tempDir+"/govcstestbzrrepo" {
+	if bzrGetter.LocalRepoPath() != tempDir+"/govcstestbzrrepo" {
 		t.Error("Local disk location not set properly")
 	}
 
@@ -49,7 +48,7 @@ func TestBzr(t *testing.T) {
 	}
 
 	// Verify Bzr repo is a Bzr repo
-	path, err := bzrGetter.Exists(Wkspc)
+	path, _, err := bzrGetter.Exists(LocalPath)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
@@ -73,7 +72,7 @@ func TestBzr(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Verify the thing exists in the workspace
-	path, err = bzrReader.Exists(Wkspc)
+	path, _, err = bzrReader.Exists(LocalPath)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
@@ -81,9 +80,9 @@ func TestBzr(t *testing.T) {
 		t.Error("Don't see the new bzr repo in the workspace")
 	}
 
-	output, err := bzrReader.RevSet("2")
+	results, err := bzrReader.RevSet("2")
 	if err != nil {
-		t.Errorf("Unable to update Bzr repo version. Err was %s, output was:\n%s", err, output)
+		t.Errorf("Unable to update Bzr repo version. Err was %s, results were:\n%s", err, results)
 	}
 
 	// Use Version to verify we are on the right version.
@@ -97,7 +96,7 @@ func TestBzr(t *testing.T) {
 
 	// Perform an update.
 	mirror := true
-	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", tempDir+"/govcstestbzrrepo", !mirror, RebaseFalse, nil)
+	bzrUpdater, err := NewUpdater("https://launchpad.net/dvlnbzrtest", "", tempDir+"/govcstestbzrrepo", !mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +129,7 @@ func TestBzrExists(t *testing.T) {
 	}()
 
 	bzrReader, _ := NewBzrReader("", tempDir)
-	path, err := bzrReader.Exists(Wkspc)
+	path, _, err := bzrReader.Exists(LocalPath)
 	if err != nil {
 		t.Errorf("Existence check failed on Bzr repo: %s", err)
 	}
@@ -151,7 +150,7 @@ func TestBzrExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
 	}
-	path, err = bzrGetter.Exists(Remote)
+	path, _, err = bzrGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
 	}
@@ -169,7 +168,7 @@ func TestBzrExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Bzr getter, error: %s", err)
 	}
-	path, err = bzrGetter.Exists(Remote)
+	path, _, err = bzrGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url2, err)
 	}
@@ -182,24 +181,11 @@ func TestBzrExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Bzr getter, init should work, error: %s", err)
 	}
-	path, err = bzrGetter.Exists(Remote)
+	path, _, err = bzrGetter.Exists(Remote)
 	if err == nil {
 		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: %s", badurl1, err)
 	}
 	if path != "" {
 		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl1, err)
-	}
-
-	badurl2 := "https://launchpad.net/dvlnnotexistbzrtest"
-	bzrGetter, err = NewBzrGetter(badurl2, tempDir, false)
-	if err != nil {
-		t.Fatalf("Failed to initialize 2nd \"bad\" Bzr getter, init should work, error: %s", err)
-	}
-	path, err = bzrGetter.Exists(Remote)
-	if err == nil {
-		t.Fatalf("Failed to detect an error scanning for 2nd bad VCS location (loc: %s), error: %s", badurl2, err)
-	}
-	if path != "" {
-		t.Fatalf("Unexpectedly found a repo when shouldn't have (URL: %s), found path: %s", badurl2, err)
 	}
 }

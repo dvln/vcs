@@ -6,18 +6,18 @@ type HgGetter struct {
 	mirror bool
 }
 
-// NewHgGetter creates a new instance of HgGetter. The remote and wkspc directories
+// NewHgGetter creates a new instance of HgGetter. The remote and localPath directories
 // need to be passed in.
-func NewHgGetter(remote, wkspc string, mirror bool) (Getter, error) {
-	ltype, err := DetectVcsFromFS(wkspc)
+func NewHgGetter(remote, localPath string, mirror bool) (Getter, error) {
+	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Hg. Need to report an error.
 	if err == nil && ltype != Hg {
 		return nil, ErrWrongVCS
 	}
 	g := &HgGetter{}
 	g.mirror = mirror
-	g.setDescription(remote, "", wkspc, defaultHgSchemes, Hg)
-	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
+	g.setDescription(remote, "", localPath, defaultHgSchemes, Hg)
+	if err == nil { // Have a localPath FS repo, try to validate/upd remote
 		remote, _, err = HgCheckRemote(g, remote)
 		if err != nil {
 			return nil, err
@@ -28,16 +28,16 @@ func NewHgGetter(remote, wkspc string, mirror bool) (Getter, error) {
 }
 
 // Get support for hg getter
-func (g *HgGetter) Get(rev ...Rev) (string, error) {
+func (g *HgGetter) Get(rev ...Rev) (Resulter, error) {
 	return HgGet(g, rev...)
 }
 
 // RevSet support for hg getter
-func (g *HgGetter) RevSet(rev Rev) (string, error) {
+func (g *HgGetter) RevSet(rev Rev) (Resulter, error) {
 	return HgRevSet(g, rev)
 }
 
 // Exists support for hg getter
-func (g *HgGetter) Exists(l Location) (string, error) {
+func (g *HgGetter) Exists(l Location) (string, Resulter, error) {
 	return HgExists(g, l)
 }

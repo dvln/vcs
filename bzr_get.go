@@ -6,18 +6,18 @@ type BzrGetter struct {
 	mirror bool
 }
 
-// NewBzrGetter creates a new instance of BzrGetter. The remote and wkspc
+// NewBzrGetter creates a new instance of BzrGetter. The remote and localPath
 // directories need to be passed in.
-func NewBzrGetter(remote, wkspc string, mirror bool) (Getter, error) {
-	ltype, err := DetectVcsFromFS(wkspc)
+func NewBzrGetter(remote, localPath string, mirror bool) (Getter, error) {
+	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Bzr. Need to report an error.
 	if err == nil && ltype != Bzr {
 		return nil, ErrWrongVCS
 	}
 	g := &BzrGetter{}
 	g.mirror = mirror
-	g.setDescription(remote, "", wkspc, defaultBzrSchemes, Bzr)
-	if err == nil { // Have a local wkspc FS repo, try to improve the remote..
+	g.setDescription(remote, "", localPath, defaultBzrSchemes, Bzr)
+	if err == nil { // Have a localPath FS repo, try to improve the remote..
 		remote, _, err = BzrCheckRemote(g, remote)
 		if err != nil {
 			return nil, err
@@ -28,16 +28,16 @@ func NewBzrGetter(remote, wkspc string, mirror bool) (Getter, error) {
 }
 
 // Get support for bzr getter
-func (g *BzrGetter) Get(rev ...Rev) (string, error) {
+func (g *BzrGetter) Get(rev ...Rev) (Resulter, error) {
 	return BzrGet(g, rev...)
 }
 
 // RevSet support for bzr getter
-func (g *BzrGetter) RevSet(rev Rev) (string, error) {
+func (g *BzrGetter) RevSet(rev Rev) (Resulter, error) {
 	return BzrRevSet(g, rev)
 }
 
 // Exists support for bzr getter
-func (g *BzrGetter) Exists(l Location) (string, error) {
+func (g *BzrGetter) Exists(l Location) (string, Resulter, error) {
 	return BzrExists(g, l)
 }

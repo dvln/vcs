@@ -20,18 +20,21 @@ type GitGetter struct {
 	mirror bool
 }
 
-// NewGitGetter creates a new instance of GitGetter. The remote and wkspc URL/dir
+// NewGitGetter creates a new instance of GitGetter. The remote and localPath URL/dir
 // need to be passed in.
-func NewGitGetter(remote, wkspc string, mirror bool) (Getter, error) {
-	ltype, err := DetectVcsFromFS(wkspc)
+func NewGitGetter(remote, localPath string, mirror bool) (Getter, error) {
+	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
 	g := &GitGetter{}
 	g.mirror = mirror
-	g.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
-	if err == nil { // Have a local wkspc FS repo, try to validate/upd remote
+	// FEATURE: eventually support optional remoteName arg after remote, if given
+	//        we could do the clone and, if not "origin", rename the remote to
+	//        whatever name was given (removing origin).
+	g.setDescription(remote, "origin", localPath, defaultGitSchemes, Git)
+	if err == nil { // Have a localPath FS repo, try to validate/upd remote
 		remote, _, err = GitCheckRemote(g, remote)
 		if err != nil {
 			return nil, err
@@ -42,16 +45,16 @@ func NewGitGetter(remote, wkspc string, mirror bool) (Getter, error) {
 }
 
 // Get support for git getter
-func (g *GitGetter) Get(rev ...Rev) (string, error) {
+func (g *GitGetter) Get(rev ...Rev) (Resulter, error) {
 	return GitGet(g, rev...)
 }
 
 // RevSet support for git getter
-func (g *GitGetter) RevSet(rev Rev) (string, error) {
+func (g *GitGetter) RevSet(rev Rev) (Resulter, error) {
 	return GitRevSet(g, rev)
 }
 
 // Exists support for git getter
-func (g *GitGetter) Exists(l Location) (string, error) {
+func (g *GitGetter) Exists(l Location) (string, Resulter, error) {
 	return GitExists(g, l)
 }

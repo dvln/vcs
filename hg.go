@@ -2,7 +2,6 @@ package vcs
 
 import (
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -21,15 +20,17 @@ func init() {
 }
 
 // HgGet is used to perform an initial clone of a repository.
-func HgGet(g *HgGetter, rev ...Rev) (string, error) {
-	var output string
+func HgGet(g *HgGetter, rev ...Rev) (Resulter, error) {
+	results := newResults()
+	var result *Result
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
-		output, err = run("hg", "clone", "-U", g.Remote(), g.WkspcPath())
+		result, err = run("hg", "clone", "-U", g.Remote(), g.LocalRepoPath())
 	} else {
-		output, err = run("hg", "clone", "-u", string(rev[0]), "-U", g.Remote(), g.WkspcPath())
+		result, err = run("hg", "clone", "-u", string(rev[0]), "-U", g.Remote(), g.LocalRepoPath())
 	}
-	return output, err
+	results.add(result)
+	return results, err
 }
 
 // HgUpdate performs a Mercurial pull (like git fetch) + mercurial update (like git pull)
@@ -38,8 +39,8 @@ func HgGet(g *HgGetter, rev ...Rev) (string, error) {
 // Note that there will be a pull and a merge class of functionality in dvln but
 // pull is likely Mercurial pull (ie: git fetch) and merge is similar to git/hg,
 // whereas update is like a fetch/merge in git or pull/upd(/merge) in hg.
-func HgUpdate(u *HgUpdater, rev ...Rev) (string, error) {
-	//FIXME: erik: should support a "date:<datestr>" class of rev,
+func HgUpdate(u *HgUpdater, rev ...Rev) (Resulter, error) {
+	//FIXME: should support a "date:<datestr>" class of rev,
 	//       if that is passed in use "-d <date>" for update, so should
 	//       all other VCS's that can support it... other option is to
 	//       switch to a *Revision as the param but a special revision
@@ -47,33 +48,40 @@ func HgUpdate(u *HgUpdater, rev ...Rev) (string, error) {
 	//       time)... and a silly routine to get that rev (then no need
 	//       to mark up the 'Rev' type (which is a string), but a strong
 	//       need to pass in the right thing of course if that is done. ;)
-	output, err := runFromWkspcDir(u.WkspcPath(), "hg", "pull")
+	results := newResults()
+	result, err := runFromLocalRepoDir(u.LocalRepoPath(), "hg", "pull")
+	results.add(result)
 	if err != nil {
-		return output, err
+		return results, err
 	}
-	var updOut string
+	var updResult *Result
 	if rev == nil || (rev != nil && rev[0] == "") {
-		updOut, err = runFromWkspcDir(u.WkspcPath(), "hg", "update")
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "hg", "update")
 	} else {
-		updOut, err = runFromWkspcDir(u.WkspcPath(), "hg", "update", "-r", string(rev[0]))
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "hg", "update", "-r", string(rev[0]))
 	}
-	output = output + updOut
-	return output, err
+	results.add(updResult)
+	return results, err
 }
 
-// HgRevSet sets the wkspc revision of a pkg currently checked out via Hg.
+// HgRevSet sets the local repo rev of a pkg currently checked out via Hg.
 // Note that a single specific revision must be given vs a generic
 // Revision structure (since it may have <N> different valid rev's
 // that reference the revision, this one decides exactly the one
-// the client wishes to "set" or checkout in the wkspc).
-func HgRevSet(r RevSetter, rev Rev) (string, error) {
+// the client wishes to "set" or checkout in the local repo).
+func HgRevSet(r RevSetter, rev Rev) (Resulter, error) {
+	results := newResults()
 	if rev == "" {
-		return runFromWkspcDir(r.WkspcPath(), "hg", "update")
+		result, err := runFromLocalRepoDir(r.LocalRepoPath(), "hg", "update")
+		results.add(result)
+		return results, err
 	}
-	return runFromWkspcDir(r.WkspcPath(), "hg", "update", "-r", string(rev))
+	result, err := runFromLocalRepoDir(r.LocalRepoPath(), "hg", "update", "-r", string(rev))
+	results.add(result)
+	return results, err
 }
 
-// HgRevRead retrieves the given or current wkspc rev.  A Revision struct
+// HgRevRead retrieves the given or current local repo rev.  A Revision struct
 // pointer is returned (how filled out depends upon if the read is just the
 // basic core/raw VCS revision or full data for the given VCS which will
 // include tags, branches, timestamp info, author/committer, date, comment).
@@ -81,40 +89,42 @@ func HgRevSet(r RevSetter, rev Rev) (string, error) {
 // revisions or a range, eg HgRevRead(reader, <scope>, rev1, "..", rev2),
 // without changing this methods params or return signature (but code
 // changes  would be needed)
-func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resulter, error) {
+	results := newResults()
 	oldDir, err := os.Getwd()
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	specificRev := ""
 	if vcsRev != nil && vcsRev[0] != "" {
 		specificRev = string(vcsRev[0])
 	}
-	err = os.Chdir(r.WkspcPath())
+	err = os.Chdir(r.LocalRepoPath())
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	defer os.Chdir(oldDir)
-	var output []byte
 
 	rev := &Revision{}
 	var revs []Revisioner
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
+		var result *Result
 		if specificRev != "" {
-			output, err = exec.Command("hg", "identify", "-r", specificRev).CombinedOutput()
+			result, err = run("hg", "identify", "-r", specificRev)
 		} else {
-			output, err = exec.Command("hg", "identify").CombinedOutput()
+			result, err = run("hg", "identify")
 		}
+		results.add(result)
 		if err != nil {
-			return nil, string(output), err
+			return nil, results, err
 		}
-		parts := strings.SplitN(string(output), " ", 2)
+		parts := strings.SplitN(result.output, " ", 2)
 		sha := strings.TrimSpace(parts[0])
 		rev.SetCore(Rev(sha))
 		revs = append(revs, rev)
 	} else {
-		//FIXME: erik: implement more extensive hg data grab
+		//FIXME: implement more extensive hg data grab
 		//       if the client has asked for extra data (vs speed)
 		/* Here is how to get the details, if no "branch:" it's default
 		   141 [brady-air]/Users/brady/vcs/mercurial-repo: hg log -l 1
@@ -143,105 +153,118 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, strin
 		   ea489d94e1dc default tip
 		   147 [brady-air]/Users/brady/vcs/mercurial-repo:
 		*/
+		var result *Result
 		if specificRev != "" {
-			output, err = exec.Command("hg", "identify", "-r", specificRev).CombinedOutput()
+			result, err = run("hg", "identify", "-r", specificRev)
 		} else {
-			output, err = exec.Command("hg", "identify").CombinedOutput()
+			result, err = run("hg", "identify")
 		}
+		results.add(result)
 		if err != nil {
-			return nil, string(output), err
+			return nil, results, err
 		}
-		parts := strings.SplitN(string(output), " ", 2)
+		parts := strings.SplitN(result.output, " ", 2)
 		sha := strings.TrimSpace(parts[0])
 		rev.SetCore(Rev(sha))
 		revs = append(revs, rev)
 	}
-	return revs, string(output), err
+	return revs, results, err
 }
 
-// HgExists verifies the wkspc or remote location is a Hg repo,
-// returns where it was found ("" if not found) and any error
-func HgExists(e Existence, l Location) (string, error) {
+// HgExists verifies the local repo or remote location is a Hg repo,
+// returns where it was found ("" if not found), a resulter (cmds
+// run and their output to accomplish task) and and any error
+func HgExists(e Existence, l Location) (string, Resulter, error) {
+	results := newResults()
 	var err error
 	path := ""
-	if l == Wkspc {
-		if exists, err := dir.Exists(e.WkspcPath() + "/.hg"); exists && err == nil {
-			return e.WkspcPath(), nil
+	if l == LocalPath {
+		if exists, err := dir.Exists(e.LocalRepoPath() + "/.hg"); exists && err == nil {
+			return e.LocalRepoPath(), nil, nil
 		}
-		//FIXME: erik: if err != nil should use something like:
-		//       out.WrapErrf(ErrNoExists, #, "%v hg location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
 		// if we have a scheme then just see if the repo exists...
 		if scheme != "" {
-			_, err = exec.Command("hg", "identify", remote).CombinedOutput()
+			var result *Result
+			result, err = run("hg", "identify", remote)
+			results.add(result)
 			if err == nil {
 				path = remote
 			}
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("hg", "identify", scheme+"://"+remote).CombinedOutput()
+				var result *Result
+				result, err = run("hg", "identify", scheme+"://"+remote)
+				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
 					break
 				}
 			}
 		}
-		//FIXME: erik: better erroring on failure to detect would be good here as well, such
-		//             as a combined error on the various remote URL's checked and the error
-		//             returned from each one (along with out.WrapErr's and such for tracing),
-		//             also need to dump commands in exec.Command at Trace level and output
-		//             here of those commands at Trace level also (along with other routines)
-
 		if err == nil {
-			return path, nil
+			return path, results, nil
 		}
 	}
-	return path, err
+	return path, results, err
 }
 
 // HgCheckRemote  attempts to take a remote string (URL) and validate
 // it against any local repo and try and set it when it is empty.  Returns:
 // - string: this is the new remote (current remote returned if no new remote)
-// - string: output of the Bzr command to try and determine the remote
+// - Resulter: cmd(s) run and output of the Hg commands
 // - error: non-nil if an error occurred
-func HgCheckRemote(e Existence, remote string) (string, string, error) {
-	// Make sure the wkspc Hg repo is configured the same as the remote when
+func HgCheckRemote(e Existence, remote string) (string, Resulter, error) {
+	results := newResults()
+	// Make sure the local Hg repo is configured the same as the remote when
 	// A remote value was passed in.
 	var outStr string
-	if loc, err := e.Exists(Wkspc); err == nil && loc != "" {
+	if loc, existResults, err := e.Exists(LocalPath); err == nil && loc != "" {
+		if existResults != nil {
+			for _, existResult := range existResults.All() {
+				results.add(existResult)
+			}
+		}
 		// An Hg repo was found so test that the URL there matches
 		// the repo passed in here.
 		oldDir, err := os.Getwd()
 		if err != nil {
-			return remote, "", err
+			return remote, nil, err
 		}
-		err = os.Chdir(e.WkspcPath())
+		err = os.Chdir(e.LocalRepoPath())
 		if err != nil {
-			return remote, "", err
+			return remote, nil, err
 		}
 		defer os.Chdir(oldDir)
-		output, err := exec.Command("hg", "paths").CombinedOutput()
+		result, err := run("hg", "paths")
+		results.add(result)
 		if err != nil {
-			return remote, string(output), err
+			return remote, results, err
 		}
 
-		outStr = string(output)
+		outStr = result.output
 		m := hgDetectURL.FindStringSubmatch(outStr)
-		//FIXME: erik: added that remote != "", think it's needed, check
+		//FIXME: added that remote != "", think it's needed, check
 		if remote != "" && m[1] != "" && m[1] != remote {
-			return remote, outStr, ErrWrongRemote
+			return remote, results, ErrWrongRemote
 		}
 
 		// If no remote was passed in but one is configured for the locally
 		// checked out Hg repo use that one.
 		if remote == "" && m[1] != "" {
-			return m[1], outStr, nil
+			return m[1], results, nil
+		}
+	} else if err != nil {
+		if existResults != nil {
+			for _, existResult := range existResults.All() {
+				results.add(existResult)
+			}
 		}
 	}
-	return remote, outStr, nil
+	return remote, results, nil
 }
 
 // SetDefaultHgSchemes allows one to override the default ordering

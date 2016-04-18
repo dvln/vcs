@@ -2,8 +2,6 @@ package vcs
 
 import (
 	"io/ioutil"
-	//"fmt"
-	//"log"
 	"os"
 	"testing"
 )
@@ -40,7 +38,7 @@ func TestSvn(t *testing.T) {
 	if svnGetter.Remote() != "https://svn.code.sf.net/p/dvlnsvntest/code/trunk" {
 		t.Error("Remote not set properly")
 	}
-	if svnGetter.WkspcPath() != tempDir+"/VCSTestRepo" {
+	if svnGetter.LocalRepoPath() != tempDir+"/VCSTestRepo" {
 		t.Error("Local disk location not set properly")
 	}
 
@@ -51,7 +49,7 @@ func TestSvn(t *testing.T) {
 	}
 
 	// Verify SVN repo is a SVN repo
-	path, err := svnGetter.Exists(Wkspc)
+	path, _, err := svnGetter.Exists(LocalPath)
 	if err != nil {
 		t.Fatalf("Existence check failed on svn repo: %s", err)
 	}
@@ -85,7 +83,7 @@ func TestSvn(t *testing.T) {
 	// 	t.Fatal(err)
 	// }
 	// // Verify the right oject is returned. It will check the local repo type.
-	// path, err = svnReader.Exists(Wkspc)
+	// path, err = svnReader.Exists(LocalPath)
 	// if err != nil {
 	// 	t.Fatalf("Existence check failed on svn repo: %s", err)
 	// }
@@ -98,9 +96,9 @@ func TestSvn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
-	output, err := svnReader.RevSet("r2")
+	results, err := svnReader.RevSet("r2")
 	if err != nil {
-		t.Errorf("Unable to update SVN repo version. Err was %s, output:\n%s", err, output)
+		t.Errorf("Unable to update SVN repo version. Err was %s, results:\n%s", err, results)
 	}
 
 	// Use RevRead to verify we are on the right version.
@@ -114,7 +112,7 @@ func TestSvn(t *testing.T) {
 
 	// Perform an update which should take up back to the latest version.
 	mirror := true
-	svnUpdater, err := NewSvnUpdater("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", !mirror, RebaseFalse, nil)
+	svnUpdater, err := NewSvnUpdater("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", "", tempDir+"/VCSTestRepo", !mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +146,7 @@ func TestSvnExists(t *testing.T) {
 	}()
 
 	svnReader, _ := NewSvnReader("", tempDir)
-	path, err := svnReader.Exists(Wkspc)
+	path, _, err := svnReader.Exists(LocalPath)
 	if err != nil {
 		t.Fatalf("Existence check failed on svn repo: %s", err)
 	}
@@ -169,7 +167,7 @@ func TestSvnExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
 	}
-	path, err = svnGetter.Exists(Remote)
+	path, _, err = svnGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url1, err)
 	}
@@ -187,7 +185,7 @@ func TestSvnExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
 	}
-	path, err = svnGetter.Exists(Remote)
+	path, _, err = svnGetter.Exists(Remote)
 	if err != nil {
 		t.Fatalf("Failed to find remote repo that should exist (URL: %s), error: %s", url2, err)
 	}
@@ -200,7 +198,7 @@ func TestSvnExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Svn getter, init should work, error: %s", err)
 	}
-	path, err = svnGetter.Exists(Remote)
+	path, _, err = svnGetter.Exists(Remote)
 	if err == nil {
 		t.Fatalf("Failed to detect an error scanning for 1st bad VCS location (loc: %s), error: %s", badurl1, err)
 	}
@@ -213,7 +211,7 @@ func TestSvnExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Svn getter, init should work, error: %s", err)
 	}
-	path, err = svnGetter.Exists(Remote)
+	path, _, err = svnGetter.Exists(Remote)
 	if err == nil {
 		t.Fatalf("Failed to detect an error scanning for 2nd bad VCS location (loc: %s), error: %s", badurl2, err)
 	}

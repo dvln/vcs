@@ -35,9 +35,9 @@ func TestTypeSwitch(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	output, err := getter.Get()
+	result, err := getter.Get()
 	if err != nil {
-		t.Errorf("Unable to checkout SVN VCS reader for reader switching tests. Err was %s, output:\n%s", err, output)
+		t.Errorf("Unable to checkout SVN VCS reader for reader switching tests. Err was %s, result:\n%s", err, result)
 	}
 
 	_, err = NewReader("https://github.com/Masterminds/VCSTestRepo", tempDir+"/VCSTestRepo")

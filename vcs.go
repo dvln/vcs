@@ -22,8 +22,8 @@
 // the remote URL and return the proper type. For example,
 //
 //     remote := "https://github.com/Masterminds/vcs"
-//     wkspc, _ := ioutil.TempDir("", "go-vcs")
-//     vcsReader, err := vcs.NewReader(remote, wkspc)   // add VCS Type if known
+//     localPath, _ := ioutil.TempDir("", "go-vcs")
+//     vcsReader, err := vcs.NewReader(remote, localPath)   // add VCS Type if known
 //
 // In this case vcs will use a GitReader instance. NewReader can detect the VCS
 // for numerous popular VCS and from the URL. For example, a URL ending in .git
@@ -47,12 +47,14 @@ package vcs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 var (
-	// ErrNoExist is returned when a repo/pkg can't be found (wkspc|remote)
+	// ErrNoExist is returned when a repo/pkg can't be found (local|remote)
 	ErrNoExist = errors.New("VCS does not exist (ie: could not be found)")
 
 	// ErrWrongVCS is returned when an action is tried on the wrong VCS.
@@ -83,8 +85,8 @@ type Location string
 
 // Location settings
 const (
-	// Wkspc indicates we have a local clone in a work area
-	Wkspc Location = "wkspc"
+	// LocalPath indicates we have a local clone in a work area
+	LocalPath Location = "local"
 	// Remote indicates we have a remote clone not on the local host
 	Remote Location = "remote"
 )
@@ -100,6 +102,8 @@ const (
 	RebaseTrue RebaseVal = 1
 	// RebasePreserve means rebase but local merge commits aren't flattened
 	RebasePreserve RebaseVal = 2
+	// RebaseUser means don't give a rebase option, use the users setting
+	RebaseUser RebaseVal = 3
 )
 
 // RefOp describes operations that can be done with references
@@ -113,9 +117,15 @@ const (
 	RefDelete RefOp = "delete"
 )
 
-// run will execute the given cmd and args and return the output and
-// any error that occurred.
-func run(cmd string, args ...string) (string, error) {
+// run will execute the given cmd and args and return the results and
+// any error that occurred.  Params:
+//	cmd (string): top level cmd (eg: "git" or "/path/to/git")
+//	args (...string): what will be space separated args, empty args ignored
+// Note: the args should not have strings like "-o blah", instead: "-o", "blah"
+// Returns:
+//	*Result: a single result structure (command run, raw output from cmd)
+//	error: a Go error if anything goes astray in the exec.Command()
+func run(cmd string, args ...string) (*Result, error) {
 	var finalArgs []string
 	for _, arg := range args {
 		if arg != "" {
@@ -123,21 +133,25 @@ func run(cmd string, args ...string) (string, error) {
 		}
 	}
 	output, err := exec.Command(cmd, finalArgs...).CombinedOutput()
-	return string(output), err
+	result := newResult()
+	result.cmd = fmt.Sprintf("%s %s", cmd, strings.Join(finalArgs, " "))
+	result.output = string(output)
+	return result, err
 }
 
-// runFromWkspcDir attempts to cd into the pkg's workspace root dir (VCS root)
+// runFromLocalRepoDir attempts to cd into the pkg's workspace root dir (VCS root)
 // and run the command from that location (then it cd's back).  The command
-// output is returned along with any error.
-// WARNING: any SCM using this must avoid goroutines, Chdir is no safe!!!
-func runFromWkspcDir(wkspcDir, cmd string, args ...string) (string, error) {
+// result is returned along with any error (see run() for details).
+// WARNING: any SCM using this must avoid goroutines, Chdir() is not safe!!!
+// WARNING: instead use the run() routine with SCM opts to specify repo location
+func runFromLocalRepoDir(localRepoDir, cmd string, args ...string) (*Result, error) {
 	oldDir, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	err = os.Chdir(wkspcDir)
+	err = os.Chdir(localRepoDir)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer os.Chdir(oldDir)
 	var finalArgs []string
@@ -155,7 +169,7 @@ func runFromWkspcDir(wkspcDir, cmd string, args ...string) (string, error) {
 // it tries not to, making some assumptions and run as quickly as it can).
 // It will return the VCS type it determines along with the same or an
 // update 'remote' URL/string and any errors that occurred.
-func detectVCSType(remote, wkspc string, vcsType ...Type) (Type, string, error) {
+func detectVCSType(remote, localPath string, vcsType ...Type) (Type, string, error) {
 	var err error
 	vtype := NoVCS
 	if vcsType != nil && len(vcsType) == 1 && vcsType[0] != NoVCS {
@@ -163,12 +177,12 @@ func detectVCSType(remote, wkspc string, vcsType ...Type) (Type, string, error) 
 	} else {
 		vtype, remote, err = detectVcsFromRemote(remote)
 
-		// If from the remote URL the VCS could not be detected, see if the wkspc
+		// If from the remote URL the VCS could not be detected, see if the localPath
 		// repo contains enough information to figure out the VCS. The reason the
-		// wkspc repo is not checked first is because of the potential for VCS type
+		// localPath repo is not checked first is because of the potential for VCS type
 		// switches which will be detected in each of the type builders.
 		if err == ErrCannotDetectVCS {
-			vtype, err = DetectVcsFromFS(wkspc)
+			vtype, err = DetectVcsFromFS(localPath)
 		}
 	}
 	return vtype, remote, err

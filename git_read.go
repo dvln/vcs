@@ -19,16 +19,17 @@ type GitReader struct {
 	Description
 }
 
-// NewGitReader creates a new instance of GitReader. The remote and wkspc URL/dir
-// need to be passed in.
-func NewGitReader(remote, wkspc string) (*GitReader, error) {
-	ltype, err := DetectVcsFromFS(wkspc)
+// NewGitReader creates a new instance of GitReader. The remote and localPath URL/dir
+// need to be passed in.  This is about reading from the local repo basically so
+// you can pass in a valid remote URL or not.
+func NewGitReader(remote, localPath string) (*GitReader, error) {
+	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
 	r := &GitReader{}
-	r.setDescription(remote, "origin", wkspc, defaultGitSchemes, Git)
+	r.setDescription(remote, "origin", localPath, defaultGitSchemes, Git)
 	if err == nil {
 		newRemote, _, err := GitCheckRemote(r, remote)
 		if err != nil {
@@ -40,16 +41,16 @@ func NewGitReader(remote, wkspc string) (*GitReader, error) {
 }
 
 // RevSet support for git reader
-func (r *GitReader) RevSet(rev Rev) (string, error) {
+func (r *GitReader) RevSet(rev Rev) (Resulter, error) {
 	return GitRevSet(r, rev)
 }
 
 // RevRead support for git reader
-func (r *GitReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+func (r *GitReader) RevRead(scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resulter, error) {
 	return GitRevRead(r, scope, vcsRev...)
 }
 
 // Exists support for git reader
-func (r *GitReader) Exists(l Location) (string, error) {
+func (r *GitReader) Exists(l Location) (string, Resulter, error) {
 	return GitExists(r, l)
 }

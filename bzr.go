@@ -2,7 +2,6 @@ package vcs
 
 import (
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 
@@ -18,43 +17,50 @@ func init() {
 }
 
 // BzrGet is used to perform an initial clone of a repository.
-func BzrGet(g *BzrGetter, rev ...Rev) (string, error) {
-	var output string
+func BzrGet(g *BzrGetter, rev ...Rev) (Resulter, error) {
+	results := newResults()
 	var err error
+	var result *Result
 	if rev == nil || (rev != nil && rev[0] == "") {
-		output, err = run("bzr", "branch", g.Remote(), g.WkspcPath())
+		result, err = run("bzr", "branch", g.Remote(), g.LocalRepoPath())
 	} else {
-		output, err = run("bzr", "branch", "-r", string(rev[0]), g.Remote(), g.WkspcPath())
+		result, err = run("bzr", "branch", "-r", string(rev[0]), g.Remote(), g.LocalRepoPath())
 	}
-	return output, err
+	results.add(result)
+	return results, err
 }
 
 // BzrUpdate performs a Bzr pull and update to an existing checkout.
-func BzrUpdate(u *BzrUpdater, rev ...Rev) (string, error) {
-	output, err := runFromWkspcDir(u.WkspcPath(), "bzr", "pull")
+func BzrUpdate(u *BzrUpdater, rev ...Rev) (Resulter, error) {
+	results := newResults()
+	result, err := runFromLocalRepoDir(u.LocalRepoPath(), "bzr", "pull")
+	results.add(result)
 	if err != nil {
-		return output, err
+		return results, err
 	}
-	var updOut string
+	var updResult *Result
 	if rev == nil || (rev != nil && rev[0] == "") {
-		updOut, err = runFromWkspcDir(u.WkspcPath(), "bzr", "update")
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "bzr", "update")
 	} else {
-		updOut, err = runFromWkspcDir(u.WkspcPath(), "bzr", "update", "-r", string(rev[0]))
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "bzr", "update", "-r", string(rev[0]))
 	}
-	output = output + updOut
-	return output, err
+	results.add(updResult)
+	return results, err
 }
 
-// BzrRevSet sets the wkspc revision of a pkg currently checked out via Bzr.
+// BzrRevSet sets the local repo rev of a pkg currently checked out via Bzr.
 // Note that a single specific revision must be given (vs a generic
 // Revision structure as such a struct may have <N> different valid rev's
-// that reference the revision).  The output (if any) and any error
-// is returned from the svn update run.
-func BzrRevSet(r RevSetter, rev Rev) (string, error) {
-	return runFromWkspcDir(r.WkspcPath(), "bzr", "update", "-r", string(rev))
+// that reference the revision).  The raw cmd results (if any) and any
+// error is returned from the bzr update run.
+func BzrRevSet(r RevSetter, rev Rev) (Resulter, error) {
+	results := newResults()
+	result, err := runFromLocalRepoDir(r.LocalRepoPath(), "bzr", "update", "-r", string(rev))
+	results.add(result)
+	return results, err
 }
 
-// BzrRevRead retrieves the given or current wkspc rev.  A Revision struct
+// BzrRevRead retrieves the given or current local repo rev.  A Revision struct
 // pointer is returned (how filled out depends upon if the read is just the
 // basic core/raw VCS revision or full data for the given VCS which will
 // include tags, branches, timestamp info, author/committer, date, comment).
@@ -62,93 +68,95 @@ func BzrRevSet(r RevSetter, rev Rev) (string, error) {
 // revisions or a range, eg BzrRevRead(reader, <scope>, rev1, "..", rev2),
 // without changing this methods params or return signature (but code
 // changes  would be needed)
-func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, string, error) {
+func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resulter, error) {
+	results := newResults()
 	specificRev := ""
 	if vcsRev != nil && vcsRev[0] != "" {
 		specificRev = string(vcsRev[0])
 	}
 	oldDir, err := os.Getwd()
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	err = os.Chdir(r.WkspcPath())
+	err = os.Chdir(r.LocalRepoPath())
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	defer os.Chdir(oldDir)
-	var output []byte
 
 	rev := &Revision{}
 	var revs []Revisioner
+	var result *Result
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		if specificRev != "" {
-			output, err = exec.Command("bzr", "revno", "-r", specificRev).CombinedOutput()
+			result, err = run("bzr", "revno", "-r", specificRev)
 		} else {
-			output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+			result, err = run("bzr", "revno", "--tree")
 		}
+		results.add(result)
 		if err != nil {
-			return nil, string(output), err
+			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		rev.SetCore(Rev(strings.TrimSpace(string(result.output))))
 		revs = append(revs, rev)
 	} else {
-		//FIXME: erik: get additional data about the version if possible (fix this)
+		//FIXME: get additional data about the version if possible (fix this)
 		if specificRev != "" {
-			output, err = exec.Command("bzr", "revno", "-r", specificRev).CombinedOutput()
+			result, err = run("bzr", "revno", "-r", specificRev)
 		} else {
-			output, err = exec.Command("bzr", "revno", "--tree").CombinedOutput()
+			result, err = run("bzr", "revno", "--tree")
 		}
+		results.add(result)
 		if err != nil {
-			return nil, string(output), err
+			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(string(output))))
+		rev.SetCore(Rev(strings.TrimSpace(result.output)))
 		revs = append(revs, rev)
 	}
-	return revs, string(output), err
+	return revs, results, err
 }
 
-// BzrExists verifies the wkspc or remote location is of the Bzr repo type,
+// BzrExists verifies the local repo or remote location is of the Bzr repo type,
 // returns where it was found ("" if not found) and any error
-func BzrExists(e Existence, l Location) (string, error) {
+func BzrExists(e Existence, l Location) (string, Resulter, error) {
+	results := newResults()
 	var err error
 	path := ""
-	if l == Wkspc {
-		if exists, err := dir.Exists(e.WkspcPath() + "/.bzr"); exists && err == nil {
-			return e.WkspcPath(), nil
+	if l == LocalPath {
+		if exists, err := dir.Exists(e.LocalRepoPath() + "/.bzr"); exists && err == nil {
+			return e.LocalRepoPath(), nil, nil
 		}
-		//FIXME: erik: if err != nil should use something like:
-		//       out.WrapErrf(ErrNoExists, #, "%v bzr location, \"%s\", does not exist, err: %s", l, e.WkspcPath(), err)
+		//FIXME: if err != nil should use something like:
+		//       out.WrapErrf(ErrNoExists, #, "%v bzr location, \"%s\", does not exist, err: %s", l, e.LocalRepoPath(), err)
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
 		// if we have a scheme then just see if the repo exists...
 		if scheme != "" {
-			_, err = exec.Command("bzr", "info", remote).CombinedOutput()
+			var result *Result
+			result, err = run("bzr", "info", remote)
+			results.add(result)
 			if err == nil {
 				path = remote
 			}
 		} else {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
-				_, err = exec.Command("bzr", "info", scheme+"://"+remote).CombinedOutput()
+				var result *Result
+				result, err = run("bzr", "info", scheme+"://"+remote)
+				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
 					break
 				}
 			}
 		}
-		//FIXME: erik: better erroring on failure to detect would be good here as well, such
-		//             as a combined error on the various remote URL's checked and the error
-		//             returned from each one (along with out.WrapErr's and such for tracing),
-		//             also need to dump commands in exec.Command at Trace level and output
-		//             here of those commands at Trace level also (along with other routines)
-
 		if err == nil {
-			return path, nil
+			return path, results, nil
 		}
 	}
-	return path, err
+	return path, results, err
 }
 
 // BzrCheckRemote attempts to take a remote string (URL) and validate
@@ -157,7 +165,7 @@ func BzrExists(e Existence, l Location) (string, error) {
 // - string: this is the new remote (current remote returned if no new remote)
 // - string: output of the Bzr command to try and determine the remote
 // - error: non-nil if an error occurred
-func BzrCheckRemote(e Existence, remote string) (string, string, error) {
+func BzrCheckRemote(e Existence, remote string) (string, Resulter, error) {
 	// With the other VCS we can check if the endpoint locally is different
 	// from the one configured internally. But, with Bzr you can't. For example,
 	// if you do `bzr branch https://launchpad.net/govcstestbzrrepo` and then
@@ -165,31 +173,44 @@ func BzrCheckRemote(e Existence, remote string) (string, string, error) {
 	// http://bazaar.launchpad.net/~mattfarina/govcstestbzrrepo/trunk/. Notice
 	// the change from https to http and the path chance.
 	// Here we set the remote to be the local one if none is passed in.
+	results := newResults()
 	var outStr string
-	if loc, err := e.Exists(Wkspc); err == nil && loc != "" && remote == "" {
+	if loc, existResults, err := e.Exists(LocalPath); err == nil && loc != "" && remote == "" {
+		if existResults != nil {
+			for _, existResult := range existResults.All() {
+				results.add(existResult)
+			}
+		}
 		oldDir, err := os.Getwd()
 		if err != nil {
-			return remote, "", err
+			return remote, nil, err
 		}
-		err = os.Chdir(e.WkspcPath())
+		err = os.Chdir(e.LocalRepoPath())
 		if err != nil {
-			return remote, "", err
+			return remote, nil, err
 		}
 		defer os.Chdir(oldDir)
-		output, err := exec.Command("bzr", "info").CombinedOutput()
+		result, err := run("bzr", "info")
+		results.add(result)
 		if err != nil {
-			return remote, string(output), err
+			return remote, results, err
 		}
-		outStr = string(output)
+		outStr = string(result.output)
 		m := bzrDetectURL.FindStringSubmatch(outStr)
 
 		// If no remote was passed in but one is configured for the locally
 		// checked out Bzr VCS pkg (repo) use that one.
 		if m[1] != "" {
-			return m[1], outStr, nil
+			return m[1], results, nil
+		}
+	} else if err != nil {
+		if existResults != nil {
+			for _, existResult := range existResults.All() {
+				results.add(existResult)
+			}
 		}
 	}
-	return remote, outStr, nil
+	return remote, results, nil
 }
 
 // SetDefaultBzrSchemes allows one to override the default ordering
