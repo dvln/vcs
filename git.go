@@ -188,7 +188,7 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		if err != nil {
 			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(result.output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.Output)))
 		revs = append(revs, rev)
 	} else {
 		//FIXME: correct the full data one to run something like this:
@@ -205,7 +205,7 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		if err != nil {
 			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(result.output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.Output)))
 		revs = append(revs, rev)
 	}
 	return revs, results, nil
@@ -280,7 +280,7 @@ func GitCheckRemote(e Existence, remote string) (string, Resulter, error) {
 		if err != nil {
 			return remote, results, err
 		}
-		outStr = result.output
+		outStr = result.Output
 		localRemote := strings.TrimSpace(outStr)
 		if remote != "" && localRemote != remote {
 			return remote, results, ErrWrongRemote

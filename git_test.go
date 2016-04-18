@@ -230,7 +230,7 @@ func TestBareGit(t *testing.T) {
 	// See if the branch exists (should exist, this is a mirror)
 	result, err := run("git", runOpt, runDir, "rev-parse", "--verify", "testbr1")
 	if err != nil {
-		t.Fatalf("Failed to detect local testbr1, should be there: %s\n%s", err, result.output)
+		t.Fatalf("Failed to detect local testbr1, should be there: %s\n%s", err, result.Output)
 	}
 
 	// Perform specific fetch operations on one ref, delete another ref

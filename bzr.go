@@ -98,7 +98,7 @@ func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		if err != nil {
 			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(string(result.output))))
+		rev.SetCore(Rev(strings.TrimSpace(string(result.Output))))
 		revs = append(revs, rev)
 	} else {
 		//FIXME: get additional data about the version if possible (fix this)
@@ -111,7 +111,7 @@ func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		if err != nil {
 			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(result.output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.Output)))
 		revs = append(revs, rev)
 	}
 	return revs, results, err
@@ -195,7 +195,7 @@ func BzrCheckRemote(e Existence, remote string) (string, Resulter, error) {
 		if err != nil {
 			return remote, results, err
 		}
-		outStr = string(result.output)
+		outStr = string(result.Output)
 		m := bzrDetectURL.FindStringSubmatch(outStr)
 
 		// If no remote was passed in but one is configured for the locally

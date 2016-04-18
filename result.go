@@ -40,8 +40,8 @@ type Resulter interface {
 // Result is a structure that satisfies the VCS Resulter implementation, used
 // by the <VCS>Reader and other <VCS> implementations (eg: GitUpdater)
 type Result struct {
-	cmd    string
-	output string
+	Cmd    string
+	Output string
 }
 
 // Results is a structure that contains all the commands run and their
@@ -86,8 +86,8 @@ func (r *Results) add(result *Result) {
 // String implements a stringer for the *Result type so we can print out string
 // representations for any result
 func (r *Result) String() string {
-	indentedOut := out.InsertPrefix(r.output, "  ", out.AlwaysInsert, 0)
-	return fmt.Sprintf("cmd: %s, output:\n%s", r.cmd, indentedOut)
+	indentedOut := out.InsertPrefix(r.Output, "  ", out.AlwaysInsert, 0)
+	return fmt.Sprintf("cmd: %s, output:\n%s", r.Cmd, indentedOut)
 }
 
 // String implements a stringer for the *Results type so we can print out string
@@ -96,11 +96,11 @@ func (r *Results) String() string {
 	results := r.All()
 	resultsStr := ""
 	for i, result := range results {
-		indentedOut := out.InsertPrefix(result.output, "  ", out.AlwaysInsert, 0)
+		indentedOut := out.InsertPrefix(result.Output, "  ", out.AlwaysInsert, 0)
 		if indentedOut == "" {
 			indentedOut = "[No output from command]\n"
 		}
-		resultsStr += fmt.Sprintf("cmd %d: %s, output %d:\n%s", i+1, result.cmd, i+1, indentedOut)
+		resultsStr += fmt.Sprintf("cmd %d: %s, output %d:\n%s", i+1, result.Cmd, i+1, indentedOut)
 	}
 	return resultsStr
 }

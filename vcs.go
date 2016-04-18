@@ -108,8 +108,8 @@ func run(cmd string, args ...string) (*Result, error) {
 	}
 	output, err := exec.Command(cmd, finalArgs...).CombinedOutput()
 	result := newResult()
-	result.cmd = fmt.Sprintf("%s %s", cmd, strings.Join(finalArgs, " "))
-	result.output = string(output)
+	result.Cmd = fmt.Sprintf("%s %s", cmd, strings.Join(finalArgs, " "))
+	result.Output = string(output)
 	return result, err
 }
 

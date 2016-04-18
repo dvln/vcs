@@ -119,7 +119,7 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resul
 		if err != nil {
 			return nil, results, err
 		}
-		parts := strings.SplitN(result.output, " ", 2)
+		parts := strings.SplitN(result.Output, " ", 2)
 		sha := strings.TrimSpace(parts[0])
 		rev.SetCore(Rev(sha))
 		revs = append(revs, rev)
@@ -163,7 +163,7 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resul
 		if err != nil {
 			return nil, results, err
 		}
-		parts := strings.SplitN(result.output, " ", 2)
+		parts := strings.SplitN(result.Output, " ", 2)
 		sha := strings.TrimSpace(parts[0])
 		rev.SetCore(Rev(sha))
 		revs = append(revs, rev)
@@ -245,7 +245,7 @@ func HgCheckRemote(e Existence, remote string) (string, Resulter, error) {
 			return remote, results, err
 		}
 
-		outStr = result.output
+		outStr = result.Output
 		m := hgDetectURL.FindStringSubmatch(outStr)
 		//FIXME: added that remote != "", think it's needed, check
 		if remote != "" && m[1] != "" && m[1] != remote {

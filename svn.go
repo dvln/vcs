@@ -101,7 +101,7 @@ func SvnRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		if err != nil {
 			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(result.output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.Output)))
 		revs = append(revs, rev)
 	} else {
 		//FIXME: this needs to add more data if possible for SVN
@@ -115,7 +115,7 @@ func SvnRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		if err != nil {
 			return nil, results, err
 		}
-		rev.SetCore(Rev(strings.TrimSpace(result.output)))
+		rev.SetCore(Rev(strings.TrimSpace(result.Output)))
 		revs = append(revs, rev)
 	}
 	return revs, results, err
@@ -182,7 +182,7 @@ func SvnCheckRemote(e Existence, remote string) (string, Resulter, error) {
 		var result *Result
 		result, err := run("svn", "info", e.LocalRepoPath())
 		results.add(result)
-		outStr = result.output
+		outStr = result.Output
 		if err != nil {
 			return remote, results, err
 		}
