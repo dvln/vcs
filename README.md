@@ -66,20 +66,41 @@ files should give a general idea for use, eg: git_test.go for example.
 Here's a quick example:
 
 ```go
-	import "github.com/dvln/vcs"
+	import (
+		"io/ioutil"
+		"os"
 
+		"github.com/dvln/vcs"
+	)
     ...
+	// ... note: we're updating a test repo here so that's what the tempDir points to ...
+	tempDir, err := ioutil.TempDir("", "vcs-test")
+	if err != nil {
+		//... error out as needed
+	}
+	sep := string(os.PathSeparator)
+
 	mirror := true
+	// Prep for a clone op, do not mirror the repo just a normal clone
+	getter, err := NewGetter("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", !mirror)
+	if err != nil {
+		//... error out as needed
+	}
+	// Do an initial clone, all raw SCM cmd/output run is in the "results" (a "Resulter" interface)
+	results, err := getter.Get()
+	if err != nil {
+		t.Fatalf("Unable to clone Git repo using VCS reader Get(). Err was %s, results:\n%s", err, results)
+	}
+
 	// Perform an update operation, not mirroring (just a regular clone), don't use
 	// rebase (one can indcate don't use rebase, use rebase or use the users default)
-	// ... note: we're updating a test repo here so that's what the tempDir points to ...
-	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", !mirror, RebaseUser, nil)
+	updater, err := NewUpdater("", "origin", tempDir+sep+"VCSTestRepo", !mirror, RebaseUser, nil)
 	if err != nil {
-		t.Fatal(err)
+		//... error out as needed
 	}
-	results, err := gitUpdater.Update()
+	results, err = updater.Update()
 	if err != nil {
-		t.Fatalf("Failed to run git update, error: %s, results:\n%s", err, results)
+		//... error out as needed
 	}
 ```
 
