@@ -17,32 +17,6 @@
 
 // Package vcs provides the ability to work with varying version control systems
 // (VCS),  also known as source control systems (SCM) though the same interface.
-//
-// This package includes a function that attempts to detect the repo type from
-// the remote URL and return the proper type. For example,
-//
-//     remote := "https://github.com/Masterminds/vcs"
-//     localPath, _ := ioutil.TempDir("", "go-vcs")
-//     vcsReader, err := vcs.NewReader(remote, localPath)   // add VCS Type if known
-//
-// In this case vcs will use a GitReader instance. NewReader can detect the VCS
-// for numerous popular VCS and from the URL. For example, a URL ending in .git
-// that's not from one of the popular VCS will be detected as a Git repo and
-// the correct reader type will be returned.
-//
-// If you know the VCS system type and would like to create an instance of a
-// specific type you can add it as an optional 3rd param to NewReader or you
-// can use one of the constructurs for specific VCS types, via calls to
-// NewGitReader, NewSvnReader, NewBzrReader, and NewHgReader.
-//
-// Once you have an object implementing a VCS Reader interface the operations
-// are the same no matter which VCS you're using. There are some caveats. For
-// example, each VCS has its own revision formats that need to be respected and
-// to checkout a branch, if a branch is being worked with, is different in
-// each VCS.  These revisions are passed as type 'Rev' which is just essentially
-// a string but when revisions are read a Revision struct can be populated with
-// more extensive data about a given revision if desired (raw VCS revision, tags,
-// branches, timestamp, etc)
 package vcs
 
 import (
