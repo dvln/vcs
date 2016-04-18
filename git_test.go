@@ -65,7 +65,7 @@ func TestGit(t *testing.T) {
 	// Test internal lookup mechanism used outside of Git specific functionality.
 	ltype, err := DetectVcsFromFS(tempDir + sep + "VCSTestRepo")
 	if err != nil {
-		t.Error("detectVcsFromFS unable to Git repo")
+		t.Error("detectVcsFromFS unable to detect Git repo")
 	}
 	if ltype != Git {
 		t.Errorf("detectVcsFromFS detected %s instead of Git type", ltype)
@@ -185,7 +185,7 @@ func TestBareGit(t *testing.T) {
 	// Test internal lookup mechanism used outside of Git specific functionality.
 	ltype, err := DetectVcsFromFS(tempDir + sep + "VCSTestRepo")
 	if err != nil {
-		t.Error("detectVcsFromFS unable to Git repo")
+		t.Error("detectVcsFromFS unable to detect Git repo")
 	}
 	if ltype != Git {
 		t.Errorf("detectVcsFromFS detected %s instead of Git type", ltype)
