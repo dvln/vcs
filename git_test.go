@@ -3,8 +3,11 @@ package vcs
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/dvln/util/file"
 )
 
 // Canary test to ensure GitReader implements the Reader interface.
@@ -17,7 +20,6 @@ var _ Reader = &GitReader{}
 // VCS package... at least those items applicable to non-bare git repo's which is pretty
 // much all features
 func TestGit(t *testing.T) {
-	sep := string(os.PathSeparator)
 	tempDir, err := ioutil.TempDir("", "go-vcs-git-tests")
 	if err != nil {
 		t.Fatal(err)
@@ -28,9 +30,10 @@ func TestGit(t *testing.T) {
 			t.Error(err)
 		}
 	}()
+	testClone := filepath.Join(tempDir, "VCSTestRepo")
 
 	mirror := true
-	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", !mirror)
+	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", testClone, !mirror)
 	if err != nil {
 		t.Fatalf("Unable to instantiate new Git VCS reader, Err: %s", err)
 	}
@@ -43,7 +46,7 @@ func TestGit(t *testing.T) {
 	if gitGetter.Remote() != "https://github.com/dvln/git-test-repo" {
 		t.Error("Remote not set properly")
 	}
-	if gitGetter.LocalRepoPath() != tempDir+sep+"VCSTestRepo" {
+	if gitGetter.LocalRepoPath() != testClone {
 		t.Error("Local disk location not set properly")
 	}
 
@@ -63,7 +66,7 @@ func TestGit(t *testing.T) {
 	}
 
 	// Test internal lookup mechanism used outside of Git specific functionality.
-	ltype, err := DetectVcsFromFS(tempDir + sep + "VCSTestRepo")
+	ltype, err := DetectVcsFromFS(testClone)
 	if err != nil {
 		t.Error("detectVcsFromFS unable to detect Git repo")
 	}
@@ -73,7 +76,7 @@ func TestGit(t *testing.T) {
 
 	// Test NewReader on existing checkout. This should simply provide a working
 	// instance without error based on looking at the local directory.
-	gitReader, err := NewReader("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo")
+	gitReader, err := NewReader("https://github.com/dvln/git-test-repo", testClone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +94,7 @@ func TestGit(t *testing.T) {
 	}
 
 	// Perform an update operation
-	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", tempDir+sep+"VCSTestRepo", !mirror, RebaseFalse, nil)
+	gitUpdater, err := NewUpdater("https://github.com/dvln/git-test-repo", "origin", testClone, !mirror, RebaseFalse, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,6 +133,71 @@ func TestGit(t *testing.T) {
 	}
 	if err != nil {
 		t.Error(err)
+	}
+
+	// Install a git hook, verify existence, then remove it, verify gone
+	gitHookMgr, err := NewHookMgr(testClone)
+	if err != nil {
+		t.Fatalf("Failed to set up a new git hook manager, err:\n %s\n", err)
+	}
+	// First do a run with an invalid source path, insure that fails (this
+	// is not a bare repo so that will not be found as it doesn't exist)
+	hookSrc := filepath.Join(testClone, "hooks", "pre-push.sample")
+	link := true
+	hookLinkPath, err := gitHookMgr.Install(hookSrc, "pre-push", link)
+	if err == nil {
+		t.Fatal("Hook install of link should have failed as target is not there")
+	}
+	// Now do a run with the real non-bare path that should exist...
+	hookSrc = filepath.Join(testClone, ".git", "hooks", "pre-push.sample")
+	hookLinkPath, err = gitHookMgr.Install(hookSrc, "pre-push", link)
+	if err != nil {
+		t.Fatalf("Failed to install git hook symlink, error:\n%s\n", err)
+	}
+	fileInfo, err := os.Lstat(hookLinkPath)
+	if err != nil {
+		t.Fatalf("Should have set up a hook symlink but os.Lstat failed, err: %s\n", err)
+	}
+	if fileInfo.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("Should have created a symlink but file created was not a symlink")
+	}
+	originFile, err := os.Readlink(hookLinkPath)
+	if err != nil {
+		t.Fatalf("Should have created a symlink but failed to resolve symlink, err: %s", err)
+	}
+	if originFile != hookSrc {
+		t.Fatalf("Installed hook symlink not pointing correctly:\n  found: %s\n  need: %s\n", originFile, hookSrc)
+	}
+	err = gitHookMgr.Remove("pre-push")
+	if err != nil {
+		t.Fatalf("Failed to remove hook symlink, err: %s", err)
+	}
+	if there, err := file.Exists(hookLinkPath); err != nil || there {
+		t.Fatalf("Removal of hook symlink seems to have failed (err: %s, there: %s)\n", err, there)
+	}
+
+	// Now lets try a copy type hook install and removal
+	hookCopyPath, err := gitHookMgr.Install(hookSrc, "pre-push", !link)
+	if err != nil {
+		t.Fatalf("Failed to install (copy) git hook\n  src:%s\n  tgt:%s\n  err: %s\n", hookSrc, hookCopyPath, err)
+	}
+	fileInfo, err = os.Stat(hookCopyPath)
+	if err != nil {
+		t.Fatalf("Should have just copied file but os.Stat failed, err: %s\n", err)
+	}
+	srcFileInfo, err := os.Stat(hookSrc)
+	if err != nil {
+		t.Fatalf("Should have copied a symlink but os.Stat failed, err: %s\n", err)
+	}
+	if fileInfo.Size() != srcFileInfo.Size() {
+		t.Fatal("File size of copied file not matching source")
+	}
+	err = gitHookMgr.Remove("pre-push")
+	if err != nil {
+		t.Fatalf("Failed to remove hook file, err: %s", err)
+	}
+	if there, err := file.Exists(hookCopyPath); err != nil || there {
+		t.Fatalf("Removal of hook file seems to have failed (err: %s, there: %s)\n", err, there)
 	}
 }
 

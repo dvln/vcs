@@ -28,6 +28,9 @@ import (
 )
 
 var (
+	// ErrNotImplemented indicates this isn't yet implemented for this VCS
+	ErrNotImplemented = errors.New("VCS does not yet implement this capability")
+
 	// ErrNoExist is returned when a repo/pkg can't be found (local|remote)
 	ErrNoExist = errors.New("VCS does not exist (ie: could not be found)")
 

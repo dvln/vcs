@@ -2,9 +2,11 @@ package vcs
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/dvln/out"
 	"github.com/dvln/util/dir"
@@ -22,12 +24,83 @@ type RemoteMode string
 const (
 	// CheckRemote indicates to just validate remote URL vs remote name
 	CheckRemote RemoteMode = "check"
- 	// UpdateRemote says to force remote name point to given URL
+	// UpdateRemote says to force remote name point to given URL
 	UpdateRemote RemoteMode = "update"
 )
 
 func init() {
 	SetDefaultGitSchemes(nil)
+}
+
+// isBareRepo is a simple routine to see if a repo has a .git/ dir (non-bare),
+// otherwise it it assumed to be a bare repo, Param:
+//	path (string): path to repo (should already have existence check done)
+// Returns true if (likely) bare, false otherwise
+func isBareRepo(path string) bool {
+	bare := true
+	if exists, err := dir.Exists(filepath.Join(path, ".git")); exists && err == nil {
+		bare = false // see if it's bare or not
+	}
+	return bare
+}
+
+// GitHookRemove is used to remove a hook from a git clone, params:
+//	h (*GitHookMgr): the hook mgr structure (find location of repo/etc)
+//	name (string): name of the hook to rm (git filename under hooks/)
+// Returns any error that may have occurred
+func GitHookRemove(h *GitHookMgr, name string) error {
+	path, _, err := h.Exists(LocalPath)
+	if err == nil && path != "" { // if the local path exists...
+		hookPath := filepath.Join(path, ".git", "hooks", name)
+		if isBareRepo(path) {
+			hookPath = filepath.Join(path, "hooks", name)
+		}
+		err = os.Remove(hookPath)
+	}
+	return err
+}
+
+// GitHookInstall is used to install a hook into a git clone, params:
+//	h (*GitHookMgr): the hook mgr structure (find location of repo/etc)
+//	path (string): where is the hook we wish to install?
+//	name (string): what is the "git name" for the hook?
+//	link (bool): is hook a symlink to hookPath, or full copy/install?
+// Returns full path/name to git hook installed along w/any error seen
+func GitHookInstall(h *GitHookMgr, path, name string, link bool) (string, error) {
+	repoPath, _, err := h.Exists(LocalPath)
+	hookInstallPath := ""
+	if err == nil && repoPath != "" { // if the local path exists...
+		hookInstallPath = filepath.Join(repoPath, ".git", "hooks", name)
+		if isBareRepo(repoPath) {
+			hookInstallPath = filepath.Join(repoPath, "hooks", name)
+		}
+		if there, err := file.Exists(hookInstallPath); err == nil && there {
+			err = os.Remove(hookInstallPath)
+			if err != nil {
+				return "", out.WrapErr(err, "Failed to remove previously installed hook", 4510)
+			}
+		}
+		if there, err := file.Exists(path); err != nil || !there {
+			if err != nil {
+				return "", out.WrapErr(err, "Hook install failed checking source hook existence", 4511)
+			}
+			return "", out.NewErrf(4512, "Hook install failed, hook source path does not exist:\n  path: %s", path)
+		}
+		oldUmask := syscall.Umask(0)
+		defer syscall.Umask(oldUmask)
+		if link { // if symlink desired, try and create that
+			err = os.Symlink(path, hookInstallPath)
+			if err != nil {
+				err = out.WrapErrf(err, 4513, "Hook install failed, failed to set up symlink:\n  linktgt: %s\n  link: %s\n", path, hookInstallPath)
+			}
+		} else { // otherwise try and copy in the hook file
+			_, err = file.CopyFileSetPerms(path, hookInstallPath, 0775)
+			if err != nil {
+				err = out.WrapErrf(err, 4514, "Hook install failed, failed to copy hook file:\n  hook source path %s\n  hook install path: %s\n", path, hookInstallPath)
+			}
+		}
+	}
+	return hookInstallPath, err
 }
 
 // GitGet is used to perform an initial clone of a repository, optionally

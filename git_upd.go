@@ -38,8 +38,8 @@ type GitUpdater struct {
 // Note that this will populate/validate remote using remoteName (default: origin)
 // Returns an updater interface and any error that may have occurred
 func NewGitUpdater(
-		remote, remoteName, localPath string, mirror bool, rebase RebaseVal,
-		refs map[string]RefOp, mode ...RemoteMode) (Updater, error) {
+	remote, remoteName, localPath string, mirror bool, rebase RebaseVal,
+	refs map[string]RefOp, mode ...RemoteMode) (Updater, error) {
 	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
