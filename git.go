@@ -15,6 +15,17 @@ import (
 var defaultGitSchemes []string
 var refsRegex = regexp.MustCompile(`^refs/heads/(.*)$`)
 
+// RemoteMode describes how remote URL and checking/updating works
+type RemoteMode string
+
+// Remote URL/name checking behavior
+const (
+	// CheckRemote indicates to just validate remote URL vs remote name
+	CheckRemote RemoteMode = "check"
+ 	// UpdateRemote says to force remote name point to given URL
+	UpdateRemote RemoteMode = "update"
+)
+
 func init() {
 	SetDefaultGitSchemes(nil)
 }
@@ -260,9 +271,13 @@ func GitExists(e Existence, l Location) (string, Resulter, error) {
 // - string: this is the new remote (current remote returned if no new remote)
 // - Resulter: cmds and output of all git cmds attempted
 // - error: non-nil if an error occurred
-func GitCheckRemote(e Existence, remote string) (string, Resulter, error) {
+func GitCheckRemote(e Existence, remote string, mode ...RemoteMode) (string, Resulter, error) {
 	// Make sure the local Git repo is configured the same as the remote when
 	// a remote value was passed in, if no remote try and determine it here
+	currMode := CheckRemote // default to just checking the remote
+	if mode != nil && len(mode) == 1 {
+		currMode = mode[0] // set it to whatever was passed in otherwise (upd|check)
+	}
 	results := newResults()
 	var outStr string
 	if loc, existResults, err := e.Exists(LocalPath); err == nil && loc != "" {
@@ -283,6 +298,16 @@ func GitCheckRemote(e Existence, remote string) (string, Resulter, error) {
 		outStr = result.Output
 		localRemote := strings.TrimSpace(outStr)
 		if remote != "" && localRemote != remote {
+			// If remote is given and it doesn't match what the remoteName
+			// (eg: "origin") points to, the error if just checking and if
+			// told to update instead update the remoteName's URL to 'remote'
+			if currMode == UpdateRemote {
+				remResult, err := run("git", runOpt, runDir, "remote", "set-url", remoteName, remote)
+				results.add(remResult)
+				if err == nil {
+					return remote, results, nil
+				}
+			}
 			return remote, results, ErrWrongRemote
 		}
 

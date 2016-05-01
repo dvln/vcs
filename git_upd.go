@@ -19,28 +19,37 @@ package vcs
 // git cmds run and their output (the cmds/out for most recent Update() run)
 type GitUpdater struct {
 	Description
-	mirror bool
-	rebase RebaseVal
-	refs   map[string]RefOp
+	mirror     bool
+	rebase     RebaseVal
+	remoteMode RemoteMode
+	refs       map[string]RefOp
 }
 
-// NewGitUpdater creates a new instance of GitUpdater. The remote and localPath URL/dir
-// need to be passed in amongst other parameters.  Params:
-//	remote (string): URL of remote repo (optional if remoteNAme is given)
-//	remoteName (string): If there is a name for the remote repo (eg: "origin" default)
+// NewGitUpdater creates a new instance of GitUpdater. The remote and localPath
+// URL/dir need to be passed in amongst other parameters.  Params:
+//	remote (string): URL of remote repo (can be "", remoteName will set it)
+//	remoteName (string): git remote name for the remote repo (default="origin")
 //	localPath (string): Directory for the local repo/clone/workspace to update
 //	mirror (bool): if a full mirroring of all content is desired
 //	rebase (RebaseVal): if rebase wanted or not, what type
 //	refs (map[string]RefOp): list of refs to act on w/given operation (or nil)
+//  mode (RemoteMode): optional arg, default is CheckRemote, UpdateRemote will
+//			overwrite the URL for the Remote Name if given "remote" URL differs
 // Note that this will populate/validate remote using remoteName (default: origin)
 // Returns an updater interface and any error that may have occurred
-func NewGitUpdater(remote, remoteName, localPath string, mirror bool, rebase RebaseVal, refs map[string]RefOp) (Updater, error) {
+func NewGitUpdater(
+		remote, remoteName, localPath string, mirror bool, rebase RebaseVal,
+		refs map[string]RefOp, mode ...RemoteMode) (Updater, error) {
 	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
 	u := &GitUpdater{}
+	u.remoteMode = CheckRemote // default to just checking the remote URL vs name
+	if mode != nil && len(mode) == 1 {
+		u.remoteMode = mode[0] // use given opt (UpdateRemote|CheckRemote)
+	}
 	u.mirror = mirror
 	u.rebase = rebase
 	if refs != nil { // if refs given, then set up refs to act on w/ops
@@ -53,7 +62,7 @@ func NewGitUpdater(remote, remoteName, localPath string, mirror bool, rebase Reb
 	}
 	u.setDescription(remote, remoteName, localPath, defaultGitSchemes, Git)
 	if err == nil { // Have a localPath FS repo, try to validate/upd remote
-		remote, _, err = GitCheckRemote(u, remote)
+		remote, _, err = GitCheckRemote(u, remote, u.remoteMode)
 		if err != nil {
 			return nil, err
 		}
