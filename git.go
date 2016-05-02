@@ -1,7 +1,10 @@
 package vcs
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -101,6 +104,71 @@ func GitHookInstall(h *GitHookMgr, path, name string, link bool) (string, error)
 		}
 	}
 	return hookInstallPath, err
+}
+
+// GitHookInstalled is used to check if a given hook is installed as
+// specified, it does nothing more,  Params:
+//	h (*GitHookMgr): the hook mgr structure (find location of repo/etc)
+//	path (string): where is the hook we wish to install?
+//	name (string): what is the "git name" for the hook?
+//	link (bool): is hook a symlink to hookPath, or full copy/install?
+// Returns boolean, true if hook is installed as specified, false otherwise
+func GitHookInstalled(h *GitHookMgr, path, name string, link bool) bool {
+	cachedPathHashes := make(map[string]string)
+	repoPath, _, err := h.Exists(LocalPath)
+	hookInstalled := false
+	hookInstallPath := ""
+	if err == nil && repoPath != "" { // if the local path exists...
+		hookInstallPath = filepath.Join(repoPath, ".git", "hooks", name)
+		if isBareRepo(repoPath) {
+			hookInstallPath = filepath.Join(repoPath, "hooks", name)
+		}
+		if link { // if client wants a link, see if link is there already...
+			fileInfo, err := os.Lstat(hookInstallPath)
+			if err != nil {
+				return false // if not there then installed is false
+			}
+			if fileInfo.Mode()&os.ModeSymlink == 0 {
+				return false // if not a symlink then installed is false
+			}
+			originFile, err := os.Readlink(hookInstallPath)
+			if err != nil {
+				return false // if cannot read link, installed is false
+			}
+			if originFile != path {
+				return false // target is not what we wanted, installed is false
+			}
+			hookInstalled = true
+		} else { // user wants copy of file, see if there and sha matches..
+			if there, err := file.Exists(hookInstallPath); err != nil || !there {
+				return false // err checking existence|not there, not installed
+			}
+			installed, err := ioutil.ReadFile(hookInstallPath)
+			hasher := sha256.New()
+			hasher.Write(installed)
+			installedFileHash := hex.EncodeToString(hasher.Sum(nil))
+			if err != nil {
+				return false // failed to read file, assume not installed
+			}
+			wantedFileHash := ""
+			if cachedHash, ok := cachedPathHashes[path]; ok {
+				wantedFileHash = cachedHash // only gen the hash of the target file once per pass
+			} else {
+				wanted, err2 := ioutil.ReadFile(path)
+				if err2 != nil {
+					return false // failed to read file, assume not installed
+				}
+				hasher = sha256.New()
+				hasher.Write(wanted)
+				wantedFileHash = hex.EncodeToString(hasher.Sum(nil))
+			}
+			if installedFileHash != wantedFileHash {
+				return false // sha's differ, assume rev we want not installed
+			}
+			hookInstalled = true
+		}
+	}
+	return hookInstalled
 }
 
 // GitGet is used to perform an initial clone of a repository, optionally

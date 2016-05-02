@@ -17,6 +17,10 @@ type HookMgr interface {
 	// returns full path to the hook installed and any hook install error
 	Install(string, string, bool) (string, error)
 
+	// Installed is like Install but all it does it check and see if the given
+	// hook is indeed already installed as specified or not, returns boolean
+	Installed(string, string, bool) bool
+
 	// Remove is for removing an installed hook (or symllink to a hook),
 	// the parameter is the hook name (any error detected is returned)
 	Remove(string) error

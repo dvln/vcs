@@ -29,6 +29,15 @@ func (h *GitHookMgr) Install(hookPath, hookName string, link bool) (string, erro
 	return GitHookInstall(h, hookPath, hookName, link)
 }
 
+// Installed is targeted at checking if git hooks are installed as specified
+// or not yet... if so then true, if not then false (see Install() to install)
+//	hookPath (string): path to the git hook to install
+//	hookName (string): git friendly name for this hook (so git will fire it)
+//	link (book): true if this should be a symlink, false if copy of hook wanted
+func (h *GitHookMgr) Installed(hookPath, hookName string, link bool) bool {
+	return GitHookInstalled(h, hookPath, hookName, link)
+}
+
 // Remove is for removing an installed git hook from a git clone.  Params:
 //	name (string): the name of the hook to remove (actual name in hooks/ dir)
 func (h *GitHookMgr) Remove(name string) error {
