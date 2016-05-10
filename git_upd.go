@@ -28,15 +28,16 @@ type GitUpdater struct {
 // NewGitUpdater creates a new instance of GitUpdater. The remote and localPath
 // URL/dir need to be passed in amongst other parameters.  Params:
 //	remote (string): URL of remote repo (can be "", remoteName will set it)
-//	remoteName (string): git remote name for the remote repo (default="origin")
-//	localPath (string): Directory for the local repo/clone/workspace to update
+//	remoteName (string): if there is a name for the remote repo (eg: "origin" default)
+//	localPath (string): directory for the local repo/clone/workspace to update
 //	mirror (bool): if a full mirroring of all content is desired
 //	rebase (RebaseVal): if rebase wanted or not, what type
 //	refs (map[string]RefOp): list of refs to act on w/given operation (or nil)
 //  mode (RemoteMode): optional arg, default is CheckRemote, UpdateRemote will
 //			overwrite the URL for the Remote Name if given "remote" URL differs
-// Note that this will populate/validate remote using remoteName (default: origin)
-// Returns an updater interface and any error that may have occurred
+// This will populate/validate remote using remoteName (default: origin)
+// Returns an updater interface and any error that may have occurred.  Note that
+// if the clone doesn't yet exist this will succeed, use Exists() to catch that.
 func NewGitUpdater(
 	remote, remoteName, localPath string, mirror bool, rebase RebaseVal,
 	refs map[string]RefOp, mode ...RemoteMode) (Updater, error) {

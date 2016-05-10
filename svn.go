@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/dvln/out"
 	"github.com/dvln/util/dir"
 	"github.com/dvln/util/url"
 )
@@ -25,9 +26,9 @@ func SvnGet(g *SvnGetter, rev ...Rev) (Resulter, error) {
 	var result *Result
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
-		result, err = run("svn", "checkout", g.Remote(), g.LocalRepoPath())
+		result, err = run(svnTool, "checkout", g.Remote(), g.LocalRepoPath())
 	} else {
-		result, err = run("svn", "checkout", "-r", string(rev[0]), g.Remote(), g.LocalRepoPath())
+		result, err = run(svnTool, "checkout", "-r", string(rev[0]), g.Remote(), g.LocalRepoPath())
 	}
 	results.add(result)
 	return results, err
@@ -39,9 +40,9 @@ func SvnUpdate(u *SvnUpdater, rev ...Rev) (Resulter, error) {
 	var result *Result
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
-		result, err = runFromLocalRepoDir(u.LocalRepoPath(), "svn", "update")
+		result, err = runFromLocalRepoDir(u.LocalRepoPath(), svnTool, "update")
 	} else {
-		result, err = runFromLocalRepoDir(u.LocalRepoPath(), "svn", "update", "-r", string(rev[0]))
+		result, err = runFromLocalRepoDir(u.LocalRepoPath(), svnTool, "update", "-r", string(rev[0]))
 	}
 	results.add(result)
 	return results, err
@@ -54,7 +55,7 @@ func SvnUpdate(u *SvnUpdater, rev ...Rev) (Resulter, error) {
 // is returned from the svn update run.
 func SvnRevSet(r RevSetter, rev Rev) (Resulter, error) {
 	results := newResults()
-	result, err := runFromLocalRepoDir(r.LocalRepoPath(), "svn", "update", "-r", string(rev))
+	result, err := runFromLocalRepoDir(r.LocalRepoPath(), svnTool, "update", "-r", string(rev))
 	results.add(result)
 	return results, err
 }
@@ -131,13 +132,14 @@ func SvnExists(e Existence, l Location) (string, Resulter, error) {
 		if exists, err := dir.Exists(e.LocalRepoPath() + "/.svn"); exists && err == nil {
 			return e.LocalRepoPath(), nil, nil
 		}
+		err = out.WrapErrf(ErrNoExist, 4507, "Local svn location, \"%s\", does not exist, err: %s", e.LocalRepoPath(), err)
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
 		// if we have a scheme then just see if the repo exists...
 		if scheme != "" {
 			var result *Result
-			result, err = run("svn", "info", remote)
+			result, err = run(svnTool, "info", remote)
 			results.add(result)
 			if err == nil {
 				path = remote
@@ -146,7 +148,7 @@ func SvnExists(e Existence, l Location) (string, Resulter, error) {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
 				var result *Result
-				result, err = run("svn", "info", scheme+"://"+remote)
+				result, err = run(svnTool, "info", scheme+"://"+remote)
 				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
@@ -157,6 +159,7 @@ func SvnExists(e Existence, l Location) (string, Resulter, error) {
 		if err == nil {
 			return path, results, nil
 		}
+		err = out.WrapErrf(ErrNoExist, 4508, "Remote svn location, \"%s\", does not exist, err: %s", e.Remote(), err)
 	}
 	return path, results, err
 }

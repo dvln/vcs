@@ -10,7 +10,7 @@ type SvnGetter struct {
 // need to be passed in. The remote location should include the branch for SVN.
 // For example, if the package is https://github.com/Masterminds/cookoo/ the remote
 // should be https://github.com/Masterminds/cookoo/trunk for the trunk branch.
-func NewSvnGetter(remote, localPath string, mirror bool) (Getter, error) {
+func NewSvnGetter(remote, remoteName, localPath string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Svn. Need to report an error.
 	if err == nil && ltype != Svn {

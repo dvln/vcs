@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/dvln/out"
 	"github.com/dvln/util/dir"
 	"github.com/dvln/util/url"
 )
@@ -25,9 +26,9 @@ func HgGet(g *HgGetter, rev ...Rev) (Resulter, error) {
 	var result *Result
 	var err error
 	if rev == nil || (rev != nil && rev[0] == "") {
-		result, err = run("hg", "clone", "-U", g.Remote(), g.LocalRepoPath())
+		result, err = run(hgTool, "clone", "-U", g.Remote(), g.LocalRepoPath())
 	} else {
-		result, err = run("hg", "clone", "-u", string(rev[0]), "-U", g.Remote(), g.LocalRepoPath())
+		result, err = run(hgTool, "clone", "-u", string(rev[0]), "-U", g.Remote(), g.LocalRepoPath())
 	}
 	results.add(result)
 	return results, err
@@ -49,16 +50,16 @@ func HgUpdate(u *HgUpdater, rev ...Rev) (Resulter, error) {
 	//       to mark up the 'Rev' type (which is a string), but a strong
 	//       need to pass in the right thing of course if that is done. ;)
 	results := newResults()
-	result, err := runFromLocalRepoDir(u.LocalRepoPath(), "hg", "pull")
+	result, err := runFromLocalRepoDir(u.LocalRepoPath(), hgTool, "pull")
 	results.add(result)
 	if err != nil {
 		return results, err
 	}
 	var updResult *Result
 	if rev == nil || (rev != nil && rev[0] == "") {
-		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "hg", "update")
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), hgTool, "update")
 	} else {
-		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "hg", "update", "-r", string(rev[0]))
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), hgTool, "update", "-r", string(rev[0]))
 	}
 	results.add(updResult)
 	return results, err
@@ -72,11 +73,11 @@ func HgUpdate(u *HgUpdater, rev ...Rev) (Resulter, error) {
 func HgRevSet(r RevSetter, rev Rev) (Resulter, error) {
 	results := newResults()
 	if rev == "" {
-		result, err := runFromLocalRepoDir(r.LocalRepoPath(), "hg", "update")
+		result, err := runFromLocalRepoDir(r.LocalRepoPath(), hgTool, "update")
 		results.add(result)
 		return results, err
 	}
-	result, err := runFromLocalRepoDir(r.LocalRepoPath(), "hg", "update", "-r", string(rev))
+	result, err := runFromLocalRepoDir(r.LocalRepoPath(), hgTool, "update", "-r", string(rev))
 	results.add(result)
 	return results, err
 }
@@ -111,9 +112,9 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resul
 		// client just wants the core/base VCS revision only..
 		var result *Result
 		if specificRev != "" {
-			result, err = run("hg", "identify", "-r", specificRev)
+			result, err = run(hgTool, "identify", "-r", specificRev)
 		} else {
-			result, err = run("hg", "identify")
+			result, err = run(hgTool, "identify")
 		}
 		results.add(result)
 		if err != nil {
@@ -155,9 +156,9 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resul
 		*/
 		var result *Result
 		if specificRev != "" {
-			result, err = run("hg", "identify", "-r", specificRev)
+			result, err = run(hgTool, "identify", "-r", specificRev)
 		} else {
-			result, err = run("hg", "identify")
+			result, err = run(hgTool, "identify")
 		}
 		results.add(result)
 		if err != nil {
@@ -173,7 +174,9 @@ func HgRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resul
 
 // HgExists verifies the local repo or remote location is a Hg repo,
 // returns where it was found ("" if not found), a resulter (cmds
-// run and their output to accomplish task) and and any error
+// run and their output to accomplish task) and and any error.  If
+// it does not exist a wrapped ErrNoExist error is returned (use
+// out.IsError() to check)
 func HgExists(e Existence, l Location) (string, Resulter, error) {
 	results := newResults()
 	var err error
@@ -182,13 +185,14 @@ func HgExists(e Existence, l Location) (string, Resulter, error) {
 		if exists, err := dir.Exists(e.LocalRepoPath() + "/.hg"); exists && err == nil {
 			return e.LocalRepoPath(), nil, nil
 		}
+		err = out.WrapErrf(ErrNoExist, 4504, "Local hg location, \"%s\", does not exist, err: %s", e.LocalRepoPath(), err)
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
 		// if we have a scheme then just see if the repo exists...
 		if scheme != "" {
 			var result *Result
-			result, err = run("hg", "identify", remote)
+			result, err = run(hgTool, "identify", remote)
 			results.add(result)
 			if err == nil {
 				path = remote
@@ -197,7 +201,7 @@ func HgExists(e Existence, l Location) (string, Resulter, error) {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
 				var result *Result
-				result, err = run("hg", "identify", scheme+"://"+remote)
+				result, err = run(hgTool, "identify", scheme+"://"+remote)
 				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
@@ -208,11 +212,12 @@ func HgExists(e Existence, l Location) (string, Resulter, error) {
 		if err == nil {
 			return path, results, nil
 		}
+		err = out.WrapErrf(ErrNoExist, 4503, "Remote hg location, \"%s\", does not exist, err: %s", e.Remote(), err)
 	}
 	return path, results, err
 }
 
-// HgCheckRemote  attempts to take a remote string (URL) and validate
+// HgCheckRemote attempts to take a remote string (URL) and validate
 // it against any local repo and try and set it when it is empty.  Returns:
 // - string: this is the new remote (current remote returned if no new remote)
 // - Resulter: cmd(s) run and output of the Hg commands
@@ -239,7 +244,7 @@ func HgCheckRemote(e Existence, remote string) (string, Resulter, error) {
 			return remote, nil, err
 		}
 		defer os.Chdir(oldDir)
-		result, err := run("hg", "paths")
+		result, err := run(hgTool, "paths")
 		results.add(result)
 		if err != nil {
 			return remote, results, err

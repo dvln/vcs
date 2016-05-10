@@ -1,12 +1,15 @@
 package vcs
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/dvln/out"
 	"github.com/dvln/util/file"
 )
 
@@ -33,7 +36,7 @@ func TestGit(t *testing.T) {
 	testClone := filepath.Join(tempDir, "VCSTestRepo")
 
 	mirror := true
-	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", testClone, !mirror)
+	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", "", testClone, !mirror)
 	if err != nil {
 		t.Fatalf("Unable to instantiate new Git VCS reader, Err: %s", err)
 	}
@@ -50,10 +53,10 @@ func TestGit(t *testing.T) {
 		t.Error("Local disk location not set properly")
 	}
 
-	// Do an initial clone.
-	_, err = gitGetter.Get()
+	// Do an initial mirror clone.
+	results, err := gitGetter.Get()
 	if err != nil {
-		t.Fatalf("Unable to clone Git repo using VCS reader Get(). Err was %s", err)
+		t.Fatalf("Unable to clone Git repo using VCS reader Get(). Err was: %s, details:\n%s", err, results)
 	}
 
 	// Verify Git repo exists in the workspace
@@ -98,7 +101,7 @@ func TestGit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	results, err := gitUpdater.Update()
+	results, err = gitUpdater.Update()
 	if err != nil {
 		t.Fatalf("Failed to run git update, error: %s, results:\n%s", err, results)
 	}
@@ -218,7 +221,7 @@ func TestBareGit(t *testing.T) {
 	}()
 
 	mirror := true
-	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", mirror)
+	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", "", tempDir+sep+"VCSTestRepo", mirror)
 	if err != nil {
 		t.Fatalf("Unable to instantiate new Git VCS reader, Err: %s", err)
 	}
@@ -296,7 +299,7 @@ func TestBareGit(t *testing.T) {
 	runOpt := "-C"
 
 	// See if the branch exists (should exist, this is a mirror)
-	result, err := run("git", runOpt, runDir, "rev-parse", "--verify", "testbr1")
+	result, err := run(gitTool, runOpt, runDir, "rev-parse", "--verify", "testbr1")
 	if err != nil {
 		t.Fatalf("Failed to detect local testbr1, should be there: %s\n%s", err, result.Output)
 	}
@@ -315,9 +318,81 @@ func TestBareGit(t *testing.T) {
 	}
 
 	// See if the branch no longer exists (should gone at this point)
-	_, err = run("git", runOpt, runDir, "rev-parse", "--verify", "testbr1")
+	_, err = run(gitTool, runOpt, runDir, "rev-parse", "--verify", "testbr1")
 	if err == nil {
 		t.Fatalf("The testbr1 branch should have been deleted, it's still still there...")
+	}
+}
+
+// This tests cloning into a mirror repo, verifying it exists, then re-cloning into the same
+// directory/path/etc but wanting a regular clone (not mirror/bare) and seeing that it blows
+// away the old clone and brings in the new "regular" clone on the 2nd pass.
+func TestGitFlipCloneType(t *testing.T) {
+	sep := string(os.PathSeparator)
+	tempDir, err := ioutil.TempDir("", "go-vcs-git-tests")
+	if err != nil {
+		t.Error(err)
+	}
+	defer func() {
+		err = os.RemoveAll(tempDir)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	mirror := true
+	gitGetter, err := NewGitGetter("https://github.com/dvln/git-test-repo", "", tempDir+sep+"VCSTestRepo", mirror)
+	if err != nil {
+		t.Errorf("Unable to instantiate new Git VCS reader, Err: %s", err)
+	}
+
+	if gitGetter.Vcs() != Git {
+		t.Error("Git is detecting the wrong type")
+	}
+
+	// Check the basic getters.
+	if gitGetter.Remote() != "https://github.com/dvln/git-test-repo" {
+		t.Error("Remote not set properly")
+	}
+	if gitGetter.LocalRepoPath() != tempDir+sep+"VCSTestRepo" {
+		t.Error("Local disk location not set properly")
+	}
+
+	// Do an initial mirror clone
+	_, err = gitGetter.Get()
+	if err != nil {
+		t.Fatalf("Unable to clone Git repo using VCS reader Get(). Err was %s", err)
+	}
+
+	// Verify Git repo exists in the workspace
+	path, _, err := gitGetter.Exists(LocalPath)
+	if err != nil || path == "" {
+		t.Errorf("Existence check failed on git repo: %s", err)
+	}
+
+	// In this case we're going with a regular clone, not a mirror clone,
+	// but we already have a mirror clone there, should detect, remove and
+	// bring in a fresh "regular" clone for us.  What could go wrong?
+	gitGetter2, err := NewGitGetter("https://github.com/dvln/git-test-repo", "", tempDir+sep+"VCSTestRepo", !mirror)
+	if err != nil {
+		t.Errorf("Unable to instantiate second Git VCS reader, Err: %s", err)
+	}
+	// Do an fresh non-mirror "regular" clone, mirror clone exists
+	results, err := gitGetter2.Get()
+	if err != nil {
+		t.Fatalf("Unable to non-mirror clone Git repo over existing mirror clone using VCS reader Get(). Err was %s", err)
+	}
+	resultsStr := fmt.Sprintf("%s", results)
+	if strings.Contains(resultsStr, "remote update") || strings.Contains(resultsStr, "--mirror") {
+		t.Fatalf("Second Get() run, which should have overwritten a mirror clone, does not appear to have worked, results:\n%s", resultsStr)
+	}
+
+	// Verify Git repo exists in the workspace
+	path, _, err = gitGetter.Exists(LocalPath)
+	if err != nil || path == "" {
+		t.Fatalf("Existence check failed on git repo: %s", err)
+	}
+	if _, err = os.Stat(tempDir + sep + "VCSTestRepo" + sep + ".git"); os.IsNotExist(err) {
+		t.Fatalf("Existence check failed on what should be a non-bare git repo: %s", err)
 	}
 }
 
@@ -339,8 +414,18 @@ func TestGitExists(t *testing.T) {
 
 	gitReader, _ := NewGitReader("", tempDir)
 	path, _, err := gitReader.Exists(LocalPath)
+	if err == nil {
+		t.Error("Existence check should have indicated not exists for git repo, but did not")
+	}
 	if path != "" {
 		t.Error("Git Exists is not correctly identifying non-Git pkg/repo")
+	}
+
+	if !out.IsError(err, ErrNoExist) {
+		t.Fatalf("Git Exists is not correctly identifying repo does not exist (looking for ErrNoExist): %s", err)
+	}
+	if !out.IsError(err, nil, 4500) {
+		t.Fatalf("Git Exists is not correctly identifying repo does not exist, error (looking for code 4500): %s", err)
 	}
 
 	// Test NewReader when there's no local. This should simply provide a working
@@ -353,7 +438,7 @@ func TestGitExists(t *testing.T) {
 	// Try remote Git existence checks via a Getter
 	url1 := "github.com/dvln/vcs"
 	mirror := true
-	gitGetter, err := NewGitGetter(url1, tempDir, !mirror)
+	gitGetter, err := NewGitGetter(url1, "", tempDir, !mirror)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Git getter, error: %s", err)
 	}
@@ -371,7 +456,7 @@ func TestGitExists(t *testing.T) {
 	}
 
 	badurl1 := "github.com/dvln/notexistvcs"
-	gitGetter, err = NewGitGetter(badurl1, tempDir, !mirror)
+	gitGetter, err = NewGitGetter(badurl1, "", tempDir, !mirror)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Git getter, init should work, error: %s", err)
 	}
@@ -404,12 +489,12 @@ func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
 	defer func() {
 		err = os.RemoveAll(tempDir)
 		if err != nil {
-			t.Error(err)
+			t.Error("Failed to remove temp workspace that should have existed, err:", err)
 		}
 	}()
 
 	mirror := true
-	gitGetter, err := NewGetter("https://github.com/dvln/git-test-repo", tempDir+sep+"VCSTestRepo", mirror)
+	gitGetter, err := NewGetter("https://github.com/dvln/git-test-repo", "", tempDir+sep+"VCSTestRepo", mirror)
 	if err != nil {
 		t.Fatalf("Unable to instantiate new Git VCS reader, Err: %s", err)
 	}
@@ -418,6 +503,16 @@ func runGetUpd(t *testing.T, wg *sync.WaitGroup) {
 	_, err = gitGetter.Get()
 	if err != nil {
 		t.Fatalf("Unable to clone Git repo using VCS reader Get(). Err was %s", err)
+	}
+
+	// Do a clone again, it should end up detecting the clone and doing a remote update
+	results, err := gitGetter.Get()
+	if err != nil {
+		t.Fatalf("Unable to clone over existing Git repo using VCS reader Get(). Err was %s", err)
+	}
+	resultsStr := fmt.Sprintf("%s", results)
+	if !strings.Contains(resultsStr, "remote update") {
+		t.Fatalf("Appears 2nd clone didn't switch to using a remote update, results:\n%s", resultsStr)
 	}
 
 	// Perform an update operation

@@ -8,7 +8,7 @@ type BzrGetter struct {
 
 // NewBzrGetter creates a new instance of BzrGetter. The remote and localPath
 // directories need to be passed in.
-func NewBzrGetter(remote, localPath string, mirror bool) (Getter, error) {
+func NewBzrGetter(remote, remoteName, localPath string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Bzr. Need to report an error.
 	if err == nil && ltype != Bzr {

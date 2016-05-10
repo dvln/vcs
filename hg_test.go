@@ -24,7 +24,7 @@ func TestHg(t *testing.T) {
 		}
 	}()
 
-	hgGetter, err := NewHgGetter("https://bitbucket.org/dvln/testhgrepo", tempDir+"/testhgrepo", false)
+	hgGetter, err := NewHgGetter("https://bitbucket.org/dvln/testhgrepo", "", tempDir+"/testhgrepo", false)
 	if err != nil {
 		t.Fatalf("Unable to instantiate new Hg VCS reader, Err: %s", err)
 	}
@@ -132,8 +132,8 @@ func TestHgExists(t *testing.T) {
 
 	hgReader, _ := NewHgReader("", tempDir)
 	path, _, err := hgReader.Exists(LocalPath)
-	if err != nil {
-		t.Fatalf("Existence check failed on hg repo: %s", err)
+	if err == nil {
+		t.Error("Existence check should have indicated not exists for hg repo, but did not")
 	}
 	if path != "" {
 		t.Error("Hg Exists() does not identify non-Hg location")
@@ -148,7 +148,7 @@ func TestHgExists(t *testing.T) {
 
 	// Try remote Hg existence checks via a Getter
 	url1 := "bitbucket.org/dvln/testhgrepo"
-	hgGetter, err := NewHgGetter(url1, tempDir, false)
+	hgGetter, err := NewHgGetter(url1, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
 	}
@@ -166,7 +166,7 @@ func TestHgExists(t *testing.T) {
 	}
 
 	url2 := "https://bitbucket.org/dvln/testhgrepo"
-	hgGetter, err = NewHgGetter(url2, tempDir, false)
+	hgGetter, err = NewHgGetter(url2, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Hg getter, error: %s", err)
 	}
@@ -179,7 +179,7 @@ func TestHgExists(t *testing.T) {
 	}
 
 	badurl1 := "bitbucket.org/dvln/notexisttesthgrepo"
-	hgGetter, err = NewHgGetter(badurl1, tempDir, false)
+	hgGetter, err = NewHgGetter(badurl1, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Hg getter, init should work, error: %s", err)
 	}
@@ -192,7 +192,7 @@ func TestHgExists(t *testing.T) {
 	}
 
 	badurl2 := "https://bitbucket.org/dvln/notexisttesthgrepo"
-	hgGetter, err = NewHgGetter(badurl2, tempDir, false)
+	hgGetter, err = NewHgGetter(badurl2, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Hg getter, init should work, error: %s", err)
 	}

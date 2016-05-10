@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/dvln/out"
 	"github.com/dvln/util/dir"
 	"github.com/dvln/util/url"
 )
@@ -22,9 +23,9 @@ func BzrGet(g *BzrGetter, rev ...Rev) (Resulter, error) {
 	var err error
 	var result *Result
 	if rev == nil || (rev != nil && rev[0] == "") {
-		result, err = run("bzr", "branch", g.Remote(), g.LocalRepoPath())
+		result, err = run(bzrTool, "branch", g.Remote(), g.LocalRepoPath())
 	} else {
-		result, err = run("bzr", "branch", "-r", string(rev[0]), g.Remote(), g.LocalRepoPath())
+		result, err = run(bzrTool, "branch", "-r", string(rev[0]), g.Remote(), g.LocalRepoPath())
 	}
 	results.add(result)
 	return results, err
@@ -33,16 +34,16 @@ func BzrGet(g *BzrGetter, rev ...Rev) (Resulter, error) {
 // BzrUpdate performs a Bzr pull and update to an existing checkout.
 func BzrUpdate(u *BzrUpdater, rev ...Rev) (Resulter, error) {
 	results := newResults()
-	result, err := runFromLocalRepoDir(u.LocalRepoPath(), "bzr", "pull")
+	result, err := runFromLocalRepoDir(u.LocalRepoPath(), bzrTool, "pull")
 	results.add(result)
 	if err != nil {
 		return results, err
 	}
 	var updResult *Result
 	if rev == nil || (rev != nil && rev[0] == "") {
-		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "bzr", "update")
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), bzrTool, "update")
 	} else {
-		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), "bzr", "update", "-r", string(rev[0]))
+		updResult, err = runFromLocalRepoDir(u.LocalRepoPath(), bzrTool, "update", "-r", string(rev[0]))
 	}
 	results.add(updResult)
 	return results, err
@@ -55,7 +56,7 @@ func BzrUpdate(u *BzrUpdater, rev ...Rev) (Resulter, error) {
 // error is returned from the bzr update run.
 func BzrRevSet(r RevSetter, rev Rev) (Resulter, error) {
 	results := newResults()
-	result, err := runFromLocalRepoDir(r.LocalRepoPath(), "bzr", "update", "-r", string(rev))
+	result, err := runFromLocalRepoDir(r.LocalRepoPath(), bzrTool, "update", "-r", string(rev))
 	results.add(result)
 	return results, err
 }
@@ -90,9 +91,9 @@ func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		if specificRev != "" {
-			result, err = run("bzr", "revno", "-r", specificRev)
+			result, err = run(bzrTool, "revno", "-r", specificRev)
 		} else {
-			result, err = run("bzr", "revno", "--tree")
+			result, err = run(bzrTool, "revno", "--tree")
 		}
 		results.add(result)
 		if err != nil {
@@ -103,9 +104,9 @@ func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 	} else {
 		//FIXME: get additional data about the version if possible (fix this)
 		if specificRev != "" {
-			result, err = run("bzr", "revno", "-r", specificRev)
+			result, err = run(bzrTool, "revno", "-r", specificRev)
 		} else {
-			result, err = run("bzr", "revno", "--tree")
+			result, err = run(bzrTool, "revno", "--tree")
 		}
 		results.add(result)
 		if err != nil {
@@ -118,7 +119,8 @@ func BzrRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 }
 
 // BzrExists verifies the local repo or remote location is of the Bzr repo type,
-// returns where it was found ("" if not found) and any error
+// returns where it was found ("" if not found) and any error.  If it does not
+// exist a wrapped ErrNoExist error is returned (use out.IsError() to check)
 func BzrExists(e Existence, l Location) (string, Resulter, error) {
 	results := newResults()
 	var err error
@@ -127,15 +129,14 @@ func BzrExists(e Existence, l Location) (string, Resulter, error) {
 		if exists, err := dir.Exists(e.LocalRepoPath() + "/.bzr"); exists && err == nil {
 			return e.LocalRepoPath(), nil, nil
 		}
-		//FIXME: if err != nil should use something like:
-		//       out.WrapErrf(ErrNoExists, #, "%v bzr location, \"%s\", does not exist, err: %s", l, e.LocalRepoPath(), err)
+		err = out.WrapErrf(ErrNoExist, 4505, "Local bzr location, \"%s\", does not exist, err: %s", e.LocalRepoPath(), err)
 	} else { // checking remote "URL" as well as possible for current VCS..
 		remote := e.Remote()
 		scheme := url.GetScheme(remote)
 		// if we have a scheme then just see if the repo exists...
 		if scheme != "" {
 			var result *Result
-			result, err = run("bzr", "info", remote)
+			result, err = run(bzrTool, "info", remote)
 			results.add(result)
 			if err == nil {
 				path = remote
@@ -144,7 +145,7 @@ func BzrExists(e Existence, l Location) (string, Resulter, error) {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
 				var result *Result
-				result, err = run("bzr", "info", scheme+"://"+remote)
+				result, err = run(bzrTool, "info", scheme+"://"+remote)
 				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
@@ -155,6 +156,7 @@ func BzrExists(e Existence, l Location) (string, Resulter, error) {
 		if err == nil {
 			return path, results, nil
 		}
+		err = out.WrapErrf(ErrNoExist, 4506, "Remote bzr location, \"%s\", does not exist, err: %s", e.Remote(), err)
 	}
 	return path, results, err
 }
@@ -190,7 +192,7 @@ func BzrCheckRemote(e Existence, remote string) (string, Resulter, error) {
 			return remote, nil, err
 		}
 		defer os.Chdir(oldDir)
-		result, err := run("bzr", "info")
+		result, err := run(bzrTool, "info")
 		results.add(result)
 		if err != nil {
 			return remote, results, err

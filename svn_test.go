@@ -25,7 +25,7 @@ func TestSvn(t *testing.T) {
 		}
 	}()
 
-	svnGetter, err := NewSvnGetter("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", tempDir+"/VCSTestRepo", false)
+	svnGetter, err := NewSvnGetter("https://svn.code.sf.net/p/dvlnsvntest/code/trunk", "", tempDir+"/VCSTestRepo", false)
 	if err != nil {
 		t.Fatalf("Unable to instantiate new SVN VCS reader, Err: %s", err)
 	}
@@ -147,8 +147,8 @@ func TestSvnExists(t *testing.T) {
 
 	svnReader, _ := NewSvnReader("", tempDir)
 	path, _, err := svnReader.Exists(LocalPath)
-	if err != nil {
-		t.Fatalf("Existence check failed on svn repo: %s", err)
+	if err == nil {
+		t.Error("Existence check should have indicated not exists for svn repo, but did not")
 	}
 	if path != "" {
 		t.Fatal("SVN repo exists check incorrectlyi indicating existence")
@@ -163,7 +163,7 @@ func TestSvnExists(t *testing.T) {
 
 	// Try remote Svn existence checks via a Getter
 	url1 := "svn.code.sf.net/p/dvlnsvntest/code/trunk"
-	svnGetter, err := NewSvnGetter(url1, tempDir, false)
+	svnGetter, err := NewSvnGetter(url1, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
 	}
@@ -181,7 +181,7 @@ func TestSvnExists(t *testing.T) {
 	}
 
 	url2 := "https://svn.code.sf.net/p/dvlnsvntest/code/trunk"
-	svnGetter, err = NewSvnGetter(url2, tempDir, false)
+	svnGetter, err = NewSvnGetter(url2, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize new Svn getter, error: %s", err)
 	}
@@ -194,7 +194,7 @@ func TestSvnExists(t *testing.T) {
 	}
 
 	badurl1 := "svn://svn.code.sf.net/p/notexistdvlnsvntest/code/trunk"
-	svnGetter, err = NewSvnGetter(badurl1, tempDir, false)
+	svnGetter, err = NewSvnGetter(badurl1, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 1st \"bad\" Svn getter, init should work, error: %s", err)
 	}
@@ -207,7 +207,7 @@ func TestSvnExists(t *testing.T) {
 	}
 
 	badurl2 := "https://svn.code.sf.net/p/notexistdvlnsvntest/code/trunk"
-	svnGetter, err = NewSvnGetter(badurl2, tempDir, false)
+	svnGetter, err = NewSvnGetter(badurl2, "", tempDir, false)
 	if err != nil {
 		t.Fatalf("Failed to initialize 2nd \"bad\" Svn getter, init should work, error: %s", err)
 	}

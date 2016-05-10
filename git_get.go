@@ -22,18 +22,18 @@ type GitGetter struct {
 
 // NewGitGetter creates a new instance of GitGetter. The remote and localPath URL/dir
 // need to be passed in.
-func NewGitGetter(remote, localPath string, mirror bool) (Getter, error) {
+func NewGitGetter(remote, remoteName, localPath string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Git. Need to report an error.
 	if err == nil && ltype != Git {
 		return nil, ErrWrongVCS
 	}
 	g := &GitGetter{}
+	if remoteName == "" { 
+		remoteName = "origin"
+	}
 	g.mirror = mirror
-	// FEATURE: eventually support optional remoteName arg after remote, if given
-	//        we could do the clone and, if not "origin", rename the remote to
-	//        whatever name was given (removing origin).
-	g.setDescription(remote, "origin", localPath, defaultGitSchemes, Git)
+	g.setDescription(remote, remoteName, localPath, defaultGitSchemes, Git)
 	if err == nil { // Have a localPath FS repo, try to validate/upd remote
 		remote, _, err = GitCheckRemote(g, remote)
 		if err != nil {

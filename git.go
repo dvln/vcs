@@ -177,12 +177,42 @@ func GitHookInstalled(h *GitHookMgr, path, name string, link bool) bool {
 //	rev (Rev): optional; revision to checkout after getting the clone
 // Returns results (vcs cmds run, output) and any error that may have occurred
 func GitGet(g *GitGetter, rev ...Rev) (Resulter, error) {
-	results := newResults()
 	mirrorStr := ""
 	if g.mirror { // if in mirror clone mode add in --mirror
 		mirrorStr = "--mirror"
 	}
-	result, err := run("git", "clone", mirrorStr, g.Remote(), g.LocalRepoPath())
+	results := newResults()
+	var result *Result
+	path, _, err := g.Exists(LocalPath)
+	update := false
+	if err == nil && path != "" { // if the local path exists...
+		bare := isBareRepo(path)
+		if (g.mirror && !bare) || (!g.mirror && bare) {
+			if locPath := g.LocalRepoPath(); locPath != "" && locPath != "/" {
+				os.RemoveAll(locPath) // if existing repo type doesn't match what we want, blast it
+			}
+		} else { // repo exists and is good (sane & is bare|regular as desired), use remote update
+			update = true
+		}
+	}
+	if update {
+		runOpt := "-C"
+		runDir := g.LocalRepoPath()
+		if g.mirror { // if mirror type update desired do remote update
+			result, err = run(gitTool, runOpt, runDir, "remote", "update", "--prune", g.RemoteRepoName())
+		} else { // otherwise run git fetch
+			result, err = run(gitTool, runOpt, runDir, "fetch", g.RemoteRepoName())
+		}
+	} else {
+		// origin is the default remote name and if doing bare/mirror
+		// clone the -o option will not function
+		if g.mirror || g.RemoteRepoName() == "origin" {
+			result, err = run(gitTool, "clone", mirrorStr, g.Remote(), g.LocalRepoPath())
+		} else {
+			result, err = run(gitTool, "clone", "-o", g.RemoteRepoName(), mirrorStr, g.Remote(), g.LocalRepoPath())
+		}
+	}
+
 	results.add(result)
 	if err != nil && rev != nil {
 		// Be careful to append more results from cmds run in RevSet
@@ -210,21 +240,21 @@ func gitUpdateRefs(u *GitUpdater) (Resulter, error) {
 		var result *Result
 		switch refOp {
 		case RefDelete:
-			result, err = run("git", runOpt, runDir, "update-ref", "-d", ref)
+			result, err = run(gitTool, runOpt, runDir, "update-ref", "-d", ref)
 			results.add(result)
 		case RefFetch:
 			if u.mirror { // request is to mirror refs exactly, do so
 				refSpec := fmt.Sprintf("+%s:%s", ref, ref)
-				result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+				result, err = run(gitTool, runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 			} else { // normal fetch requested, heads remapped, all else comes in "as-is"
 				m := refsRegex.FindStringSubmatch(ref) // look for refs/heads/<name> refs
 				if m[1] != "" {                        // if it was a refs/heads then map it:
 					remoteRef := fmt.Sprintf("refs/remotes/%s/%s", u.RemoteRepoName(), m[1])
 					refSpec := fmt.Sprintf("+%s:%s", ref, remoteRef)
-					result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+					result, err = run(gitTool, runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 				} else { // bring in tags/etc under the same namespace
 					refSpec := fmt.Sprintf("+%s:%s", ref, ref)
-					result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
+					result, err = run(gitTool, runOpt, runDir, "fetch", u.RemoteRepoName(), refSpec)
 				}
 			}
 			results.add(result)
@@ -246,18 +276,23 @@ func GitUpdate(u *GitUpdater, rev ...Rev) (Resulter, error) {
 	// some handling of mirror/bare clones vs local clones and for std
 	// clones can do rebase type pulls (if that section of the routine is
 	// reached).
-	var err error
-	runOpt := "-C"
-	runDir := u.LocalRepoPath()
+
+	results := newResults()
+	path, _, err := u.Exists(LocalPath)
+	if err != nil && path == "" {
+		return results, out.WrapErr(err, "Existence check failed on local git clone", 4509)
+	}
+
 	if u.refs != nil {
 		return gitUpdateRefs(u)
 	}
-	results := newResults()
+	runOpt := "-C"
+	runDir := u.LocalRepoPath()
 	var result *Result
 	if u.mirror {
-		result, err = run("git", runOpt, runDir, "remote", "update", "--prune", u.RemoteRepoName())
+		result, err = run(gitTool, runOpt, runDir, "remote", "update", "--prune", u.RemoteRepoName())
 	} else {
-		result, err = run("git", runOpt, runDir, "fetch", u.RemoteRepoName())
+		result, err = run(gitTool, runOpt, runDir, "fetch", u.RemoteRepoName())
 	}
 	results.add(result)
 	if err != nil {
@@ -286,9 +321,9 @@ func GitUpdate(u *GitUpdater, rev ...Rev) (Resulter, error) {
 		}
 		var pullResult *Result
 		if rev == nil || (rev != nil && rev[0] == "") {
-			pullResult, err = run("git", runOpt, runDir, "pull", rebaseStr, u.RemoteRepoName())
+			pullResult, err = run(gitTool, runOpt, runDir, "pull", rebaseStr, u.RemoteRepoName())
 		} else { // if user asks for a specific version on pull, use that
-			pullResult, err = run("git", runOpt, runDir, "pull", rebaseStr, u.RemoteRepoName(), string(rev[0]))
+			pullResult, err = run(gitTool, runOpt, runDir, "pull", rebaseStr, u.RemoteRepoName(), string(rev[0]))
 		}
 		results.add(pullResult)
 	}
@@ -304,7 +339,7 @@ func GitRevSet(r RevSetter, rev Rev) (Resulter, error) {
 	runOpt := "-C"
 	runDir := r.LocalRepoPath()
 	results := newResults()
-	result, err := run("git", runOpt, runDir, "checkout", string(rev))
+	result, err := run(gitTool, runOpt, runDir, "checkout", string(rev))
 	results.add(result)
 	return results, err
 }
@@ -332,9 +367,9 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 	if scope == CoreRev {
 		// client just wants the core/base VCS revision only..
 		if specificRev != "" {
-			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
+			result, err = run(gitTool, runOpt, runDir, "log", "-1", "--format=%H", specificRev)
 		} else {
-			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
+			result, err = run(gitTool, runOpt, runDir, "log", "-1", "--format=%H")
 		}
 		results.add(result)
 		if err != nil {
@@ -349,9 +384,9 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 		//should also add author+authorid+committer+committerid and then add in the
 		//revision comment on the line following that data
 		if specificRev != "" {
-			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H", specificRev)
+			result, err = run(gitTool, runOpt, runDir, "log", "-1", "--format=%H", specificRev)
 		} else {
-			result, err = run("git", runOpt, runDir, "log", "-1", "--format=%H")
+			result, err = run(gitTool, runOpt, runDir, "log", "-1", "--format=%H")
 		}
 		results.add(result)
 		if err != nil {
@@ -367,13 +402,14 @@ func GitRevRead(r RevReader, scope ReadScope, vcsRev ...Rev) ([]Revisioner, Resu
 // returns where it was found (or "" if not found), the results
 // of any git cmds run (cmds and related output) and any error.
 // Note that if no git cmds run then Resulter won't have any data
-// (which occurs if the git repo is local)
+// (which occurs if the git repo is local). If the git repo does not
+// exist a wrapped ErrNoExist is returned (use out.IsError() to check)
 func GitExists(e Existence, l Location) (string, Resulter, error) {
 	results := newResults()
 	var err error
 	path := ""
 	if l == LocalPath {
-		_, _, err = findGitDirs(e.LocalRepoPath()) // see if git clone there
+		_, _, err = findGitDirs(e.LocalRepoPath()) // clone? wrapped ErrNoExists if not
 		if err == nil {
 			return e.LocalRepoPath(), nil, nil // it's a local git clone, success
 		}
@@ -382,7 +418,7 @@ func GitExists(e Existence, l Location) (string, Resulter, error) {
 		scheme := url.GetScheme(remote)
 		if scheme != "" { // if we have a scheme then see if the repo exists...
 			var result *Result
-			result, err = run("git", "ls-remote", remote)
+			result, err = run(gitTool, "ls-remote", remote)
 			results.add(result)
 			if err == nil {
 				path = remote
@@ -391,7 +427,7 @@ func GitExists(e Existence, l Location) (string, Resulter, error) {
 			vcsSchemes := e.Schemes()
 			for _, scheme = range vcsSchemes {
 				var result *Result
-				result, err = run("git", "ls-remote", scheme+"://"+remote)
+				result, err = run(gitTool, "ls-remote", scheme+"://"+remote)
 				results.add(result)
 				if err == nil {
 					path = scheme + "://" + remote
@@ -402,13 +438,20 @@ func GitExists(e Existence, l Location) (string, Resulter, error) {
 		if err == nil {
 			return path, results, nil
 		}
-		err = out.WrapErrf(ErrNoExist, 4501, "Remote git location, \"%s\", does not exist, err: %s", e.LocalRepoPath(), err)
+		err = out.WrapErrf(ErrNoExist, 4501, "Remote git location does not exist: %s\n  run err: %s", e.Remote(), err)
 	}
 	return path, results, err
 }
 
-// GitCheckRemote  attempts to take a remote string (URL) and validate
-// it against any local repo and try and set it when it is empty.  Returns:
+// GitCheckRemote attempts to take a remote string (URL) and validate
+// it against any local repo and try and set it when it is empty.  It does
+// this by running 'git config --get remote.<remotename>.url'  on the local
+// clone (using the currently set up remote name, usually origin).
+// This is handy in that it'll choke if the repo is damaged (usually exits
+// non-zero and returns nothing in that case) or work quickly otherwise.
+// For ARK it's been tweaked so that if the remote is set differently than
+// the remote we passed in, we'll override it to match the one we passed in.
+// Returns:
 // - string: this is the new remote (current remote returned if no new remote)
 // - Resulter: cmds and output of all git cmds attempted
 // - error: non-nil if an error occurred
@@ -431,7 +474,7 @@ func GitCheckRemote(e Existence, remote string, mode ...RemoteMode) (string, Res
 		runDir := loc
 		remoteName := e.RemoteRepoName()
 		gitString := fmt.Sprintf("remote.%s.url", remoteName)
-		result, err := run("git", runOpt, runDir, "config", "--get", gitString)
+		result, err := run(gitTool, runOpt, runDir, "config", "--get", gitString)
 		results.add(result)
 		if err != nil {
 			return remote, results, err
@@ -443,7 +486,7 @@ func GitCheckRemote(e Existence, remote string, mode ...RemoteMode) (string, Res
 			// (eg: "origin") points to, the error if just checking and if
 			// told to update instead update the remoteName's URL to 'remote'
 			if currMode == UpdateRemote {
-				remResult, err := run("git", runOpt, runDir, "remote", "set-url", remoteName, remote)
+				remResult, err := run(gitTool, runOpt, runDir, "remote", "set-url", remoteName, remote)
 				results.add(remResult)
 				if err == nil {
 					return remote, results, nil
@@ -500,5 +543,9 @@ func findGitDirs(path string) (string, string, error) {
 			return path, "", nil
 		}
 	}
-	return "", "", out.WrapErrf(ErrNoExist, 4500, "Unable to find valid git dir under path: %s, err: %s", path, err)
+
+	if err == nil {
+		return "", "", out.WrapErrf(ErrNoExist, 4500, "Unable to find valid git clone under path: %s", path)
+	}
+	return "", "", out.WrapErrf(ErrNoExist, 4500, "Unable to find valid git clone under path: %s\n  existence err: %s", path, err)
 }

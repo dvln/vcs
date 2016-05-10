@@ -5,14 +5,16 @@ import (
 )
 
 // DetectVcsFromFS detects the type from the local path.
-// Is there a better way to do this?
+// FIXME: Is there a better way to do this?  For git one could run something
+// like git config to dump some info, which would fail (exit non-zero) if the
+// repo was damaged (just a thought)
 func DetectVcsFromFS(vcsPath string) (Type, error) {
 
 	// When the local directory to the package doesn't exist
 	// it's not yet downloaded so we can't detect the type
 	// locally.
 	if _, err := os.Stat(vcsPath); os.IsNotExist(err) {
-		return "", ErrCannotDetectVCS
+		return "", ErrNoExist
 	}
 
 	seperator := string(os.PathSeparator)

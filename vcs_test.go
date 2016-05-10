@@ -31,7 +31,7 @@ func TestTypeSwitch(t *testing.T) {
 		}
 	}()
 
-	getter, err := NewSvnGetter("https://github.com/Masterminds/VCSTestRepo/trunk", tempDir+"/VCSTestRepo", false)
+	getter, err := NewSvnGetter("https://github.com/Masterminds/VCSTestRepo/trunk", "", tempDir+"/VCSTestRepo", false)
 	if err != nil {
 		t.Error(err)
 	}

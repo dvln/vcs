@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 var (
@@ -37,12 +38,18 @@ var (
 	// ErrWrongVCS is returned when an action is tried on the wrong VCS.
 	ErrWrongVCS = errors.New("Wrong VCS detected")
 
-	// ErrCannotDetectVCS is returned when VCS cannot be detected from URI string.
+	// ErrCannotDetectVCS used when VCS cannot be detected/determined from local/remote info
 	ErrCannotDetectVCS = errors.New("Cannot detect VCS")
 
 	// ErrWrongRemote occurs when the passed in remote does not match the VCS
 	// configured endpoint.
 	ErrWrongRemote = errors.New("The Remote does not match the VCS endpoint")
+
+	mutex   sync.Mutex // local mutex for goroutine data safety
+	gitTool = "git"    // default: use path to run whatever git they have
+	hgTool  = "hg"     // default: use path to run whatever hg they have
+	bzrTool = "bzr"    // default: use path to run whatever bzr they have
+	svnTool = "svn"    // default: use path to run whatever svn they have
 )
 
 // Type describes the type of VCS
@@ -154,13 +161,40 @@ func detectVCSType(remote, localPath string, vcsType ...Type) (Type, string, err
 	} else {
 		vtype, remote, err = detectVcsFromRemote(remote)
 
-		// If from the remote URL the VCS could not be detected, see if the localPath
-		// repo contains enough information to figure out the VCS. The reason the
-		// localPath repo is not checked first is because of the potential for VCS type
-		// switches which will be detected in each of the type builders.
+		// If from the remote URL the VCS could not be detected, see if the
+		// localPath repo contains enough information to figure out the VCS.
+		// The reason the localPath repo is not checked first is because of
+		// the potential for VCS type switches which will be detected in each
+		// of the type builders.
 		if err == ErrCannotDetectVCS {
 			vtype, err = DetectVcsFromFS(localPath)
+			if err != nil {
+				// Shift it back to cannot detect (may be ErrNoExist for the local clone
+				// but for this routine it's more important to indicate we cannot detect it
+				err = ErrCannotDetectVCS
+			}
 		}
 	}
 	return vtype, remote, err
+}
+
+// SetToolPath allows one to set a path for the VCS package for
+// a given SCM tool binary... the default is no path and to rely
+// upon the clients path (eg: git vs /path/to/git).  Params:
+//	vcsType (Type): what VCS are we tweaking the tool location for?
+//	path (Type): desired name/path of the given SCM tool (eg: "/usr/bin/git")
+// Returns nothing and is goroutine safe.
+func SetToolPath(vcsType Type, path string) {
+	mutex.Lock()
+	switch vcsType {
+	case Git:
+		gitTool = path
+	case Svn:
+		svnTool = path
+	case Hg:
+		hgTool = path
+	case Bzr:
+		bzrTool = path
+	}
+	mutex.Unlock()
 }

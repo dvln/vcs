@@ -8,7 +8,7 @@ type HgGetter struct {
 
 // NewHgGetter creates a new instance of HgGetter. The remote and localPath directories
 // need to be passed in.
-func NewHgGetter(remote, localPath string, mirror bool) (Getter, error) {
+func NewHgGetter(remote, remoteName, localPath string, mirror bool) (Getter, error) {
 	ltype, err := DetectVcsFromFS(localPath)
 	// Found a VCS other than Hg. Need to report an error.
 	if err == nil && ltype != Hg {

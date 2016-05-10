@@ -40,20 +40,20 @@ type Getter interface {
 // is minimal (eg: not a full URL with scheme) then this will try and detect
 // VCS type (if unable to determine an ErrCannotDetectVCS will be returned).
 // Note: This function can make network calls to try to determine the VCS
-func NewGetter(remote, localPath string, mirror bool, vcsType ...Type) (Getter, error) {
+func NewGetter(remote, remoteName, localPath string, mirror bool, vcsType ...Type) (Getter, error) {
 	vtype, remote, err := detectVCSType(remote, localPath, vcsType...)
 	if err != nil {
 		return nil, err
 	}
 	switch vtype {
 	case Git:
-		return NewGitGetter(remote, localPath, mirror)
+		return NewGitGetter(remote, remoteName, localPath, mirror)
 	case Svn:
-		return NewSvnGetter(remote, localPath, mirror)
+		return NewSvnGetter(remote, remoteName, localPath, mirror)
 	case Hg:
-		return NewHgGetter(remote, localPath, mirror)
+		return NewHgGetter(remote, remoteName, localPath, mirror)
 	case Bzr:
-		return NewBzrGetter(remote, localPath, mirror)
+		return NewBzrGetter(remote, remoteName, localPath, mirror)
 	}
 
 	// Should never fall through to here but just in case.
